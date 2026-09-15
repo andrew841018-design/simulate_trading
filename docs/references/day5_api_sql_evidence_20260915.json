@@ -1,0 +1,30 @@
+{
+  "seed": 42,
+  "transport": "FastAPI TestClient through original routes; real local PostgreSQL test DB; shared outer transaction/savepoints",
+  "source_sha256": "405a977acf60f3ebb1d959a16e75984a31b85a7816c9d27fea7c0c4bcb81bd14",
+  "attempted": 100,
+  "succeeded": 100,
+  "failed": 0,
+  "order_get_verified": 100,
+  "orders": 100,
+  "transitions": 100,
+  "outbox": 100,
+  "idempotency": 100,
+  "reserved_delta": "48910.00",
+  "available_cash": "51090.00",
+  "per_order_reconciliation": "100/100 PASS",
+  "source_unchanged": true,
+  "cleanup_remaining": {
+    "accounts": 0,
+    "orders": 0,
+    "transitions": 0,
+    "outbox": 0,
+    "idempotency": 0
+  },
+  "rollback": "PASS; only own transaction rows rolled back; identity sequence values may advance",
+  "result": "PASS",
+  "date": "2026-09-15",
+  "offline_report_cases": "21/21 PASS",
+  "source_unchanged_label": "manifest input unchanged during execution; project Python not modified by Codex",
+  "scope_limit": "In-process FastAPI TestClient with original routes and real PostgreSQL test DB. Shared outer transaction, route savepoints, final rollback. Does not verify real network, independent-connection commit durability, load capacity, or fill/cancel lifecycle."
+}
