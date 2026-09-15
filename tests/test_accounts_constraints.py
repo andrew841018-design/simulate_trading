@@ -1,16 +1,16 @@
 import psycopg
 import pytest
 from psycopg.errors import CheckViolation, NotNullViolation, UniqueViolation
-
+from app.config import account_settings
 
 @pytest.fixture(scope="session",autouse=True)
 def reset_test_database():
-    connection = psycopg.connect("postgresql:///simulate_trading_test", autocommit=True)
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}", autocommit=True)
     assert connection.info.dbname.endswith("_test")
-    connection.execute("TRUNCATE TABLE accounts")
+    connection.execute("TRUNCATE TABLE accounts,orders,order_transitions,outbox_events,idempotency_requests")
     connection.close()
 def test_account_id_constraints():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -32,7 +32,7 @@ def test_account_id_constraints():
         connection.rollback()
         connection.close()
 def test_total_cash_constraints():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -54,7 +54,7 @@ def test_total_cash_constraints():
         connection.rollback()
         connection.close()
 def test_reserved_cash_constraints():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -76,7 +76,7 @@ def test_reserved_cash_constraints():
         connection.rollback()
         connection.close()
 def test_reserved_cash_not_exceed_total_cash_constraints():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -98,7 +98,7 @@ def test_reserved_cash_not_exceed_total_cash_constraints():
         connection.rollback()
         connection.close()
 def test_valid_account_insertion():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -120,7 +120,7 @@ def test_valid_account_insertion():
         connection.rollback()
         connection.close()
 def test_duplicate_account_id_insertion():
-    connection = psycopg.connect("postgresql:///simulate_trading_test")
+    connection = psycopg.connect(f"{account_settings.TEST_DATABASE_URL}")
     try:
         with connection.cursor() as cursor:
             cursor.execute(

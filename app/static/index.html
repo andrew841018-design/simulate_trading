@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模擬交易</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, sans-serif; color: #1c2938; background: #f2f5f9; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; }
+      main { max-width: 1080px; margin: auto; }
+      h1 { margin-bottom: 8px; } h2 { margin-top: 0; }
+      section { background: white; border: 1px solid #d6dfe9; border-radius: 12px; padding: 24px; margin: 20px 0; }
+      label { display: block; font-weight: 600; margin: 12px 0 6px; }
+      input { font: inherit; padding: 10px; border: 1px solid #8b9aaa; border-radius: 6px; max-width: 100%; width: 320px; }
+      button { font: inherit; padding: 10px 14px; margin: 8px 4px 4px 0; border: 1px solid #254e80; border-radius: 6px; background: #254e80; color: white; cursor: pointer; }
+      button:disabled { background: #e4e9ef; border-color: #c4cdd8; color: #526173; cursor: default; }
+      :focus-visible { outline: 3px solid #ce8100; outline-offset: 3px; }
+      dl { display: grid; grid-template-columns: minmax(100px, 160px) minmax(0, 1fr); gap: 10px; }
+      dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+      [role="status"] { padding: 12px; background: #edf3fa; border-radius: 6px; overflow-wrap: anywhere; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { text-align: left; padding: 10px 6px; border-bottom: 1px solid #d6dfe9; overflow-wrap: anywhere; }
+      th:first-child { width: 43%; }
+      @media (max-width: 540px) { body { padding: 12px; } section { padding: 16px; } th, td { font-size: 14px; } td button { padding: 8px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>模擬交易</h1>
+      <p>查看帳戶、建立 LIMIT BUY，以及查詢訂單。</p>
+
+      <!-- 帳戶資料 -->
+      <section aria-labelledby="account-heading">
+        <h2 id="account-heading">帳戶資料</h2>
+
+        <label for="account-id">帳戶 ID</label>
+        <input id="account-id" type="text" value="SIM-001" />
+
+        <button id="load-account" type="button" disabled>載入／重新整理</button>
+
+        <dl>
+          <dt>總現金</dt>
+          <dd id="total-cash">—</dd>
+
+          <dt>已預留現金</dt>
+          <dd id="reserved-cash">—</dd>
+
+          <dt>可用現金</dt>
+          <dd id="available-cash">—</dd>
+        </dl>
+
+        <p id="account-message" role="status">尚未載入帳戶。</p>
+      </section>
+
+      <!-- 建立買單 -->
+      <section aria-labelledby="buy-heading">
+        <h2 id="buy-heading">建立 LIMIT BUY</h2>
+
+        <p>使用帳戶：<span id="selected-account">—</span></p>
+        <p>方向：BUY；類型：LIMIT</p>
+
+        <div>
+          <label for="symbol">商品代碼</label>
+          <input
+            id="symbol"
+            type="text"
+            maxlength="32"
+            placeholder="輸入大寫商品代碼"
+            required
+          />
+        </div>
+
+        <div>
+          <label for="quantity">數量</label>
+          <input id="quantity" type="number" min="1" step="1" required />
+        </div>
+
+        <div>
+          <label for="price">限價</label>
+          <input
+            id="price"
+            type="text"
+            inputmode="decimal"
+            placeholder="例如 10.00"
+            required
+          />
+        </div>
+
+        <button id="submit-buy" type="button" disabled>送出買單</button>
+
+        <button id="confirm-request" type="button" disabled hidden>
+          確認原請求結果
+        </button>
+
+        <p id="buy-message" role="status">尚未送出買單。</p>
+        <button id="refresh-buy-result" type="button" disabled hidden>
+          重新整理已成功訂單與帳戶
+        </button>
+      </section>
+
+      <!-- 訂單列表與查詢 -->
+      <section aria-labelledby="order-heading">
+        <h2 id="order-heading">訂單查詢</h2>
+
+        <h3>本分頁已取得的訂單</h3>
+        <p>這裡只顯示本分頁取得的訂單，不是完整歷史。</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">訂單 ID</th>
+              <th scope="col">最新查詢狀態</th>
+              <th scope="col">已成交數量</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody id="order-list">
+            <tr>
+              <td colspan="4">尚無訂單資料。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>依 ID 查詢</h3>
+
+        <label for="order-id">訂單 ID</label>
+        <input id="order-id" type="text" />
+
+        <button id="query-order" type="button" disabled>查詢</button>
+
+        <dl>
+          <dt>訂單 ID</dt>
+          <dd id="result-order-id">—</dd>
+
+          <dt>訂單狀態</dt>
+          <dd id="order-status">—</dd>
+
+          <dt>已成交數量</dt>
+          <dd id="fill-quantity">—</dd>
+
+          <dt>所屬帳戶</dt>
+          <dd id="order-account-id">—</dd>
+
+          <dt>帳戶總現金</dt>
+          <dd id="order-total-cash">—</dd>
+
+          <dt>帳戶已預留現金</dt>
+          <dd id="order-reserved-cash">—</dd>
+
+          <dt>帳戶可用現金</dt>
+          <dd id="order-available-cash">—</dd>
+        </dl>
+
+        <p id="order-message" role="status">尚未查詢訂單。</p>
+      </section>
+    </main>
+    <script>
+      const accountInput = document.getElementById("account-id");
+      const loadAccountButton = document.getElementById("load-account");
+      const accountMessage = document.getElementById("account-message");
+      const selectedAccount = document.getElementById("selected-account");
+      const cashOutputs = {
+        total_cash: document.getElementById("total-cash"),
+        reserved_cash: document.getElementById("reserved-cash"),
+        available_cash: document.getElementById("available-cash"),
+      };
+      let accountLoading = false;
+      let loadedAccountId = null;
+      let buyBusy = false;
+      let pendingRequest = null;
+      let storageBlocked = false;
+      let lastSuccess = null;
+      const pendingStorageKey = "simulate-trading.pending-buy.v1";
+      const buyButton = document.getElementById("submit-buy");
+      const confirmButton = document.getElementById("confirm-request");
+      const refreshBuyButton = document.getElementById("refresh-buy-result");
+      const buyMessage = document.getElementById("buy-message");
+      const symbolInput = document.getElementById("symbol");
+      const quantityInput = document.getElementById("quantity");
+      const priceInput = document.getElementById("price");
+      const seenOrders = new Map();
+      const orderInput = document.getElementById("order-id");
+      const queryOrderButton = document.getElementById("query-order");
+      const orderMessage = document.getElementById("order-message");
+      const detailIds = ["result-order-id", "order-status", "fill-quantity",
+        "order-account-id", "order-total-cash", "order-reserved-cash", "order-available-cash"];
+      let orderQueryVersion = 0;
+
+      function syncControls() {
+        const locked = buyBusy || Boolean(pendingRequest) || storageBlocked;
+        accountInput.disabled = accountLoading || locked;
+        loadAccountButton.disabled = accountLoading || locked;
+        [symbolInput, quantityInput, priceInput].forEach((input) => {
+          input.disabled = locked;
+        });
+        buyButton.disabled = locked || accountLoading || !loadedAccountId;
+        confirmButton.hidden = !pendingRequest;
+        confirmButton.disabled = buyBusy || accountLoading || storageBlocked;
+        refreshBuyButton.hidden = !lastSuccess;
+        refreshBuyButton.disabled = locked || accountLoading;
+        // Reads remain available while a POST outcome is unknown.
+        queryOrderButton.disabled = buyBusy;
+        orderInput.disabled = buyBusy;
+      }
+
+      function clearAccount() {
+        loadedAccountId = null;
+        selectedAccount.textContent = "—";
+        Object.values(cashOutputs).forEach((output) => {
+          output.textContent = "—";
+        });
+        syncControls();
+      }
+
+      accountInput.addEventListener("input", () => {
+        clearAccount();
+        accountMessage.textContent = "帳戶 ID 已變更，請重新載入。";
+      });
+
+      async function loadAccount(accountId) {
+        clearAccount();
+        if (!accountId) {
+          accountMessage.textContent = "請輸入帳戶 ID。";
+          accountInput.focus();
+          return false;
+        }
+
+        accountInput.value = accountId;
+        accountLoading = true;
+        syncControls();
+        accountMessage.textContent = "載入中…";
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        try {
+          const response = await fetch(
+            `/v1/accounts/${encodeURIComponent(accountId)}`,
+            { signal: controller.signal, cache: "no-store" }
+          );
+          if (!response.ok) {
+            throw new Error(
+              response.status === 404
+                ? "找不到此帳戶，請確認帳戶 ID。"
+                : `帳戶查詢失敗（HTTP ${response.status}），請稍後重試。`
+            );
+          }
+          const account = await response.json();
+          if (
+            !account ||
+            account.account_id !== accountId ||
+            !Object.keys(cashOutputs).every(
+              (key) => typeof account[key] === "number" && Number.isFinite(account[key])
+            )
+          ) {
+            throw new Error("帳戶回應格式不正確，請重新載入。");
+          }
+
+          selectedAccount.textContent = account.account_id;
+          loadedAccountId = account.account_id;
+          Object.entries(cashOutputs).forEach(([key, output]) => {
+            output.textContent = account[key].toFixed(2);
+          });
+          accountMessage.textContent = "帳戶已載入。";
+          return true;
+        } catch (error) {
+          clearAccount();
+          accountMessage.textContent = controller.signal.aborted
+            ? "帳戶查詢逾時，請重新載入。"
+            : error instanceof TypeError
+              ? "無法連線至伺服器，請確認連線後重試。"
+              : error instanceof SyntaxError
+                ? "帳戶回應格式不正確，請重新載入。"
+                : error.message;
+          return false;
+        } finally {
+          clearTimeout(timeout);
+          accountLoading = false;
+          syncControls();
+        }
+      }
+
+      loadAccountButton.addEventListener("click", () => {
+        if (!loadAccountButton.disabled) return loadAccount(accountInput.value.trim());
+      });
+
+      function validBuyPayload(payload) {
+        return payload && Object.keys(payload).length === 6 &&
+          typeof payload.account_id === "string" &&
+          payload.account_id.length > 0 && payload.account_id.length <= 64 &&
+          payload.account_id.trim() === payload.account_id &&
+          payload.action === "BUY" && payload.order_type === "LIMIT" &&
+          Number.isSafeInteger(payload.quantity) && payload.quantity > 0 &&
+          typeof payload.price === "string" &&
+          /^(0|[1-9]\d*)\.\d{2}$/.test(payload.price) && payload.price !== "0.00" &&
+          typeof payload.symbol === "string" &&
+          /^[\x21-\x7e]{1,32}$/.test(payload.symbol) &&
+          payload.symbol.toUpperCase() === payload.symbol;
+      }
+
+      function savePending(request) {
+        // Persist before POST: a lost response must never become a new order.
+        sessionStorage.setItem(pendingStorageKey, JSON.stringify(request));
+        pendingRequest = request;
+      }
+
+      function clearPending() {
+        try {
+          sessionStorage.removeItem(pendingStorageKey);
+          pendingRequest = null;
+          return true;
+        } catch {
+          storageBlocked = true;
+          return false;
+        }
+      }
+
+      async function fetchJson(url, options = {}) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+          const response = await fetch(url, {
+            ...options, signal: controller.signal, cache: "no-store",
+          });
+          return { response, data: await response.json() };
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function renderKnownOrders() {
+        const body = document.getElementById("order-list");
+        body.replaceChildren();
+        seenOrders.forEach((order, id) => {
+          const row = document.createElement("tr");
+          [id, order?.status ?? "待查詢", order?.fill_quantity ?? "—"].forEach((value) => {
+            const cell = document.createElement("td");
+            cell.textContent = String(value);
+            row.append(cell);
+          });
+          const actionCell = document.createElement("td");
+          const viewButton = document.createElement("button");
+          viewButton.type = "button";
+          viewButton.textContent = "查看";
+          viewButton.addEventListener("click", () => {
+            if (!buyBusy) return queryOrder(id);
+          });
+          actionCell.append(viewButton);
+          row.append(actionCell);
+          body.append(row);
+        });
+      }
+
+      function clearOrderDetails() {
+        detailIds.forEach((id) => { document.getElementById(id).textContent = "—"; });
+      }
+
+      orderInput.addEventListener("input", () => {
+        orderQueryVersion += 1;
+        clearOrderDetails();
+        orderMessage.textContent = "訂單 ID 已變更，請重新查詢。";
+      });
+
+      async function queryOrder(orderId, expectedAccountId = null) {
+        const version = ++orderQueryVersion;
+        clearOrderDetails();
+        orderInput.value = orderId;
+        if (!orderId) {
+          orderMessage.textContent = "請輸入訂單 ID。";
+          orderInput.focus();
+          return false;
+        }
+        orderMessage.textContent = "查詢最新訂單…";
+        try {
+          const { response, data } = await fetchJson(`/v1/orders/${encodeURIComponent(orderId)}`);
+          if (version !== orderQueryVersion) return false;
+          if (!response.ok) {
+            if (seenOrders.has(orderId)) {
+              seenOrders.set(orderId, null);
+              renderKnownOrders();
+            }
+            throw new Error(response.status === 404 ? "找不到此訂單，請確認訂單 ID。" :
+              `訂單查詢失敗（HTTP ${response.status}），請重試。`);
+          }
+          if (data?.order_id !== orderId ||
+              !["OPEN", "PARTIAL_FILLED", "FILLED", "CANCELLED"].includes(data.status) ||
+              !Number.isSafeInteger(data.fill_quantity) || data.fill_quantity < 0 ||
+              typeof data.account?.account_id !== "string" || !data.account.account_id ||
+              (expectedAccountId !== null && data.account.account_id !== expectedAccountId) ||
+              !Object.keys(cashOutputs).every((key) => Number.isFinite(data.account[key]))) {
+            throw new Error("訂單回應格式不正確，請重新查詢。");
+          }
+          const values = [data.order_id, data.status, data.fill_quantity, data.account.account_id,
+            data.account.total_cash.toFixed(2), data.account.reserved_cash.toFixed(2),
+            data.account.available_cash.toFixed(2)];
+          detailIds.forEach((id, i) => { document.getElementById(id).textContent = String(values[i]); });
+          seenOrders.set(data.order_id, data);
+          renderKnownOrders();
+          orderMessage.textContent = "訂單資料已更新。";
+          return true;
+        } catch (error) {
+          if (version !== orderQueryVersion) return false;
+          if (seenOrders.has(orderId)) {
+            seenOrders.set(orderId, null);
+            renderKnownOrders();
+          }
+          orderMessage.textContent = error.name === "AbortError"
+            ? "訂單查詢逾時，請重試。"
+            : error instanceof TypeError ? "無法連線查詢訂單，請確認連線後重試。"
+            : error instanceof SyntaxError ? "訂單回應格式不正確，請重新查詢。"
+            : error.message;
+          return false;
+        }
+      }
+
+      queryOrderButton.addEventListener("click", () => {
+        if (!queryOrderButton.disabled) return queryOrder(orderInput.value.trim());
+      });
+
+      async function refreshSuccessfulBuy() {
+        const success = lastSuccess;
+        if (!success) return;
+        const orderOk = await queryOrder(success.orderId, success.accountId);
+        if (!orderOk) {
+          document.getElementById("result-order-id").textContent = success.orderId;
+          orderMessage.textContent += " 下單已成功，可重新整理。";
+        }
+        const accountOk = await loadAccount(success.accountId);
+        buyMessage.textContent = `下單成功，訂單 ID：${success.orderId}。` +
+          (orderOk && accountOk ? "帳戶與訂單已更新。" : "部分資料更新失敗，請按重新整理；不需再次下單。");
+        if (storageBlocked) buyMessage.textContent += "請求暫存無法清除，已停用新下單。";
+      }
+
+      async function sendBuy(request) {
+        if (buyBusy || accountLoading || storageBlocked) return;
+        orderQueryVersion += 1;
+        buyBusy = true;
+        syncControls();
+        buyMessage.textContent = "送出中…";
+        try {
+          const { response, data } = await fetchJson("/v1/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": request.key },
+            body: JSON.stringify(request.payload),
+          });
+          if (response.status === 201 && typeof data?.order_id === "string" && data.order_id.trim() &&
+              Object.keys(request.payload).every((key) => data[key] === request.payload[key])) {
+            lastSuccess = { orderId: data.order_id, accountId: request.payload.account_id };
+            clearPending();
+            seenOrders.set(data.order_id, null);
+            renderKnownOrders();
+            document.getElementById("order-id").value = data.order_id;
+            await refreshSuccessfulBuy();
+          } else if (
+            (response.status === 404 && data?.detail === "Account not found") ||
+            (response.status === 409 && ["Insufficient cash", "Idempotency key already exists"].includes(data?.detail)) ||
+            (response.status === 422 && Array.isArray(data?.detail))
+          ) {
+            clearPending();
+            const messages = {
+              "Account not found": "帳戶不存在，請重新載入帳戶。",
+              "Insufficient cash": "可用現金不足，請調整輸入。",
+              "Idempotency key already exists": "請求識別衝突，請確認後再建立新請求。",
+            };
+            buyMessage.textContent = messages[data.detail] ?? "輸入格式未通過後端檢查，請確認欄位。";
+            if (response.status === 422) {
+              const labels = { account_id: "帳戶 ID", symbol: "商品代碼", quantity: "數量", price: "限價" };
+              const fields = [...new Set(data.detail.flatMap((error) =>
+                Array.isArray(error.loc) ? error.loc.filter((key) => Object.hasOwn(labels, key)).map((key) => labels[key]) : []))];
+              if (fields.length) buyMessage.textContent += `需檢查：${fields.join("、")}。`;
+            }
+            if (storageBlocked) buyMessage.textContent += "請求暫存無法清除，已停用新下單。";
+            await loadAccount(request.payload.account_id);
+          } else {
+            throw new Error("Unknown order result");
+          }
+        } catch {
+          buyMessage.textContent = "尚未確認這筆下單結果。已保留原請求，請按「確認原請求結果」，不要建立第二筆下單。";
+        } finally {
+          buyBusy = false;
+          syncControls();
+        }
+      }
+
+      buyButton.addEventListener("click", () => {
+        if (buyButton.disabled) return;
+        const payload = {
+          account_id: loadedAccountId, action: "BUY", order_type: "LIMIT",
+          symbol: symbolInput.value, quantity: Number(quantityInput.value), price: priceInput.value,
+        };
+        if (!/^\d+$/.test(quantityInput.value) || !validBuyPayload(payload)) {
+          buyMessage.textContent = "請確認商品為大寫 ASCII、數量為正整數、限價為正值且恰好兩位小數（例如 10.00）。";
+          return;
+        }
+        try {
+          const request = { key: crypto.randomUUID(), payload };
+          savePending(request);
+          return sendBuy(request);
+        } catch {
+          buyMessage.textContent = "無法保存請求識別，尚未送出下單。請確認瀏覽器暫存功能後重試。";
+          syncControls();
+        }
+      });
+
+      confirmButton.addEventListener("click", () => {
+        if (!confirmButton.disabled && pendingRequest) return sendBuy(pendingRequest);
+      });
+      refreshBuyButton.addEventListener("click", async () => {
+        if (refreshBuyButton.disabled) return;
+        buyBusy = true;
+        syncControls();
+        try { await refreshSuccessfulBuy(); }
+        finally { buyBusy = false; syncControls(); }
+      });
+
+      try {
+        const saved = sessionStorage.getItem(pendingStorageKey);
+        if (saved !== null) {
+          const request = JSON.parse(saved);
+          if (!request || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(request.key) ||
+              !validBuyPayload(request.payload)) throw new Error("Invalid pending request");
+          pendingRequest = request;
+          accountInput.value = request.payload.account_id;
+          selectedAccount.textContent = request.payload.account_id;
+          symbolInput.value = request.payload.symbol;
+          quantityInput.value = request.payload.quantity;
+          priceInput.value = request.payload.price;
+          buyMessage.textContent = "有一筆尚未確認的下單，請確認原請求結果。";
+        }
+      } catch {
+        storageBlocked = true;
+        buyMessage.textContent = "無法讀取原請求暫存，已停用新下單；請保留此分頁與原請求供查證。";
+      }
+      syncControls();
+    </script>
+  </body>
+</html>
