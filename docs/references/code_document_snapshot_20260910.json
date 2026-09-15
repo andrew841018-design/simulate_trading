@@ -1,0 +1,195 @@
+{
+  "date": "2026-09-10",
+  "scope": "source/document consistency only; no DB execution",
+  "sources": [
+    {
+      "path": "app/config.py",
+      "sha256": "255e4fec4cc111fa8472d71451becc335e1ed350ea5e98d0693e6aca5f4af32d"
+    },
+    {
+      "path": "app/database.py",
+      "sha256": "0abd93840020e3218fd36ebe72fafda2847b46bb36ba1138045ed3486206bf87"
+    },
+    {
+      "path": "app/main.py",
+      "sha256": "d045b84858e030ad2e45e583f57e1e355453be1a6116366f1620943ff020df61"
+    },
+    {
+      "path": "app/routers/accounts.py",
+      "sha256": "e0fe7d772354237c35b2cb98615bb3d6594cc6eecfb42954f1af74bb2bc6ecf0"
+    },
+    {
+      "path": "app/routers/orders.py",
+      "sha256": "2e41bf5ebd7ec75f1175e7d40c6f58f4267c693ca420399e84072780772313ab"
+    },
+    {
+      "path": "app/static/index.html",
+      "sha256": "f86078bde590159c5c7749aedc28bfdb2311f82cd72938972738b0441e2e6480"
+    },
+    {
+      "path": "migrations/env.py",
+      "sha256": "4cb4563955b75e9b7f4e97fc245ce59e83e7feaa14bbc515efb638a3d5c3eb22"
+    },
+    {
+      "path": "migrations/script.py.mako",
+      "sha256": "d38920781b4d31ae1c0a71bc09f41c2ade8feab9e5a087e3f30cb4bbf0c1c9d3"
+    },
+    {
+      "path": "migrations/versions/2026_08_12_c6c622f0b972_create_accounts_table.py",
+      "sha256": "c0efdfda71bd5bda8985162631f5531059f3440ec45107f1072af2a3bdb4a1fa"
+    },
+    {
+      "path": "migrations/versions/2026_08_21_f14b8c2e7d90_create_orders_table.py",
+      "sha256": "dffa9500612b060f054bbf6068bdb8fc5c64feed2e2ec4625485e2fd9d004a1e"
+    },
+    {
+      "path": "migrations/versions/2026_08_26_8c2f39a71d4e_add_idempotency_outbox_schema.py",
+      "sha256": "2cdd2bf34af4a454b09c9f5d8de7cf3c5d07a24e98ef1ffc785c4dbe973e9ff8"
+    },
+    {
+      "path": "migrations/versions/2026_09_03_d3f7a4c91e20_add_outbox_event_type_domain.py",
+      "sha256": "761dc821b58a9430c824bbbc139e5438538d5a0fd72c6822fdd1fd6ae47d5ca9"
+    },
+    {
+      "path": "scripts/check_browser_buy.cjs",
+      "sha256": "95873d3a8182f2a1dc41a93d0439d25ebedf8f04bcf48920229c07991c0178ff"
+    },
+    {
+      "path": "scripts/seed_accounts.sql",
+      "sha256": "864d977d3b2991e1d9b86ae71d67d8373ae1ad3182c867f531eaec8ff3001049"
+    },
+    {
+      "path": "scripts/upgrade_test_database.py",
+      "sha256": "cf00d75e6a0152fffc92725a299660048c31ce38e0dc9efa8d0fcdcbc20cb93d"
+    },
+    {
+      "path": "scripts/virtual_user.py",
+      "sha256": "4ccb20c1aca733d53ff6c79c3695e0c6276fd9ce482401e7073d2cb85afc7e0f"
+    },
+    {
+      "path": "tests/test_accounts_api.py",
+      "sha256": "ace1cb4528fac84b1070b68a4ebec7e7e3a59473a6bd191e078deb91d537c864"
+    },
+    {
+      "path": "tests/test_accounts_constraints.py",
+      "sha256": "4cce10223751a6659ec38edddef797cdb4cbb75cb135c610161baf9ffb3a4703"
+    },
+    {
+      "path": "tests/test_browser_ui.py",
+      "sha256": "ac48132b23df2e6513bdf7a1c97e4280e8cc8d177c4630b1c092271f8e4bc464"
+    },
+    {
+      "path": "tests/test_idempotency_constraints.py",
+      "sha256": "94fffc4fb1f4c7bb3da6a70fdb79937dc937a3e55386b3bb9cbb7bb564a18a74"
+    },
+    {
+      "path": "tests/test_live.py",
+      "sha256": "780763996ae94506f52499466ad1f65206338c97646cb2e586f95e234cd9f3f2"
+    },
+    {
+      "path": "tests/test_order_transitions_constraints.py",
+      "sha256": "da1730dc4836833528586a78b6a17c1e337eb1f891d004196fcd8dc3d7abeae7"
+    },
+    {
+      "path": "tests/test_orders_api.py",
+      "sha256": "2ba5c34f986fd2845362acbd2ce4da9602e37a67d8eecb9e83db364da1f45bc5"
+    },
+    {
+      "path": "tests/test_orders_constraints.py",
+      "sha256": "34663f9f4f70ebb62f7d429a8c215d64c62f19d966aaf3b1953932324dafc835"
+    },
+    {
+      "path": "tests/test_outbox_constraints.py",
+      "sha256": "aecc50c7d30b56ffdb8de50e6ef613636349e04c73dd78198f13494d785b0d77"
+    },
+    {
+      "path": "tests/test_virtual_user.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "revisions": [
+    {
+      "file": "migrations/versions/2026_08_12_c6c622f0b972_create_accounts_table.py",
+      "revision": "c6c622f0b972",
+      "down_revision": null
+    },
+    {
+      "file": "migrations/versions/2026_08_21_f14b8c2e7d90_create_orders_table.py",
+      "revision": "f14b8c2e7d90",
+      "down_revision": "c6c622f0b972"
+    },
+    {
+      "file": "migrations/versions/2026_08_26_8c2f39a71d4e_add_idempotency_outbox_schema.py",
+      "revision": "8c2f39a71d4e",
+      "down_revision": "f14b8c2e7d90"
+    },
+    {
+      "file": "migrations/versions/2026_09_03_d3f7a4c91e20_add_outbox_event_type_domain.py",
+      "revision": "d3f7a4c91e20",
+      "down_revision": "8c2f39a71d4e"
+    }
+  ],
+  "tables": {
+    "accounts": [
+      "account_id",
+      "total_cash",
+      "reserved_cash"
+    ],
+    "orders": [
+      "order_id",
+      "account_id",
+      "action",
+      "order_type",
+      "quantity",
+      "fill_quantity",
+      "symbol",
+      "price",
+      "status",
+      "version",
+      "created_at",
+      "updated_at"
+    ],
+    "idempotency_requests": [
+      "request_payload",
+      "response_status",
+      "response_body",
+      "created_at",
+      "completed_at",
+      "idempotency_key"
+    ],
+    "order_transitions": [
+      "order_id",
+      "status_change_version",
+      "previous_status",
+      "current_status",
+      "transition_type",
+      "payload",
+      "created_at"
+    ],
+    "outbox_events": [
+      "outbox_id",
+      "event_id",
+      "order_id",
+      "event_type",
+      "payload",
+      "created_at",
+      "published_at",
+      "status_change_version"
+    ]
+  },
+  "collected_tests": {
+    "test_accounts_api.py": 2,
+    "test_accounts_constraints.py": 6,
+    "test_browser_ui.py": 1,
+    "test_idempotency_constraints.py": 7,
+    "test_live.py": 1,
+    "test_order_transitions_constraints.py": 10,
+    "test_orders_api.py": 13,
+    "test_orders_constraints.py": 20,
+    "test_outbox_constraints.py": 10,
+    "test_virtual_user.py": 0
+  },
+  "total_collected": 70,
+  "runtime_db_rechecked": false,
+  "full_suite_executed_this_scan": false
+}

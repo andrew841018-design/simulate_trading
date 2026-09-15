@@ -1,0 +1,206 @@
+{
+  "account_id": "UI-86669369f2-A",
+  "other_id": "UI-86669369f2-B",
+  "accounts": [
+    [
+      "UI-86669369f2-A",
+      "100000.00",
+      "32100.00",
+      "67900.00"
+    ],
+    [
+      "UI-86669369f2-B",
+      "9000.00",
+      "1000.00",
+      "8000.00"
+    ]
+  ],
+  "orders": [
+    [
+      "be27d6dd-de49-443f-911d-cd7c57d64ab8",
+      "UI-86669369f2-A",
+      "OPEN",
+      0
+    ],
+    [
+      "c17853c9-5e2d-4395-8fd3-f6ee076e639f",
+      "UI-86669369f2-A",
+      "OPEN",
+      0
+    ],
+    [
+      "ebc4eb11-fcdf-452d-9067-6cc5451aacad",
+      "UI-86669369f2-A",
+      "OPEN",
+      0
+    ]
+  ],
+  "counts": {
+    "order_transitions": 3,
+    "outbox_events": 3,
+    "idempotency_requests": 3
+  },
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/orders",
+      "body": {
+        "account_id": "UI-86669369f2-A",
+        "action": "BUY",
+        "order_type": "LIMIT",
+        "symbol": "AAPL",
+        "quantity": 10,
+        "price": "100.00"
+      },
+      "key": "63340940-50d5-489e-98ec-0858f700f443",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/be27d6dd-de49-443f-911d-cd7c57d64ab8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-B",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/MISSING",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/be27d6dd-de49-443f-911d-cd7c57d64ab8",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/orders",
+      "body": {
+        "account_id": "UI-86669369f2-A",
+        "action": "BUY",
+        "order_type": "LIMIT",
+        "symbol": "AAPL",
+        "quantity": 10,
+        "price": "100.00"
+      },
+      "key": "068a845e-5c8b-41ba-b2cd-2e4a372288f0",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/orders",
+      "body": {
+        "account_id": "UI-86669369f2-A",
+        "action": "BUY",
+        "order_type": "LIMIT",
+        "symbol": "AAPL",
+        "quantity": 10,
+        "price": "100.00"
+      },
+      "key": "068a845e-5c8b-41ba-b2cd-2e4a372288f0",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/ebc4eb11-fcdf-452d-9067-6cc5451aacad",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/orders",
+      "body": {
+        "account_id": "UI-86669369f2-A",
+        "action": "BUY",
+        "order_type": "LIMIT",
+        "symbol": "AAPL",
+        "quantity": 1000000,
+        "price": "100.00"
+      },
+      "key": "6e552028-b9a2-4e9e-a092-0a9e9cfebd96",
+      "status": 409
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/v1/orders",
+      "body": {
+        "account_id": "UI-86669369f2-A",
+        "action": "BUY",
+        "order_type": "LIMIT",
+        "symbol": "AAPL",
+        "quantity": 1,
+        "price": "100.00"
+      },
+      "key": "ac7bf8cb-d746-4e82-b8df-010ad7226f09",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/c17853c9-5e2d-4395-8fd3-f6ee076e639f",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/orders/c17853c9-5e2d-4395-8fd3-f6ee076e639f",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-86669369f2-A",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/v1/accounts/UI-NONEXISTENT",
+      "status": 404
+    }
+  ],
+  "boundary": "shared outer transaction; final rollback; no cross-connection commit claim"
+}

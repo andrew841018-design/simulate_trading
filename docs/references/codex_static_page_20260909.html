@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模擬交易</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #172b3a; background: #f3f6f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1080px; margin: 0 auto; padding: 40px 24px; }
+    h1 { margin: 0 0 10px; font-size: 2rem; }
+    h2 { margin: 0 0 20px; font-size: 1.2rem; }
+    h3 { margin: 24px 0 12px; font-size: 1rem; }
+    p { line-height: 1.6; }
+    .subtitle, .hint { color: #566874; }
+    .notice { padding: 12px 16px; margin: 20px 0 24px; border-left: 4px solid #9d7418; background: #fff6df; }
+    .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    section { min-width: 0; padding: 24px; border: 1px solid #d9e2e8; border-radius: 12px; background: white; }
+    .account-panel { grid-column: 1 / -1; }
+    fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+    legend { margin-bottom: 12px; font-weight: 600; }
+    label { display: block; font-size: .9rem; font-weight: 600; margin: 14px 0 6px; }
+    input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #bac9d3; border-radius: 6px; font: inherit; }
+    input:disabled { color: #516675; background: #f6f8fa; opacity: 1; }
+    button { padding: 10px 16px; border: 0; border-radius: 6px; font: inherit; font-weight: 600; }
+    button:disabled { background: #e0e7ed; color: #526676; cursor: not-allowed; }
+    .row { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 150px; }
+    .row button { flex-shrink: 0; }
+    .submit { width: 100%; margin-top: 20px; }
+    .money { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    dl { margin: 20px 0 0; }
+    dl > div { padding: 12px; background: #f5f8fa; border-radius: 6px; }
+    dt { color: #566874; font-size: .85rem; }
+    dd { margin: 8px 0 0; font-size: 1.2rem; overflow-wrap: anywhere; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .status { min-height: 1.5em; font-size: .9rem; color: #566874; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #d9e2e8; }
+    th { color: #566874; font-weight: 600; }
+    caption { text-align: left; padding: 12px 0; color: #566874; }
+    .empty { text-align: center; color: #566874; }
+    @media (max-width: 700px) {
+      main { padding: 24px 16px; }
+      .panels { grid-template-columns: 1fr; }
+      section { padding: 18px; }
+      .money { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>模擬交易</h1>
+      <p class="subtitle">查看帳戶、建立 LIMIT BUY、查詢訂單。</p>
+    </header>
+    <p class="notice">預覽模式：目前僅顯示頁面，查詢與下單尚未開放。</p>
+
+    <div class="panels">
+      <section id="account-panel" class="account-panel" aria-labelledby="account-title">
+        <h2 id="account-title">帳戶資料</h2>
+        <fieldset disabled>
+          <legend>選擇模擬帳戶</legend>
+          <div class="row">
+            <div>
+              <label for="account-id">帳戶 ID</label>
+              <input id="account-id" name="account_id" type="text" value="SIM-001" maxlength="64" aria-describedby="account-message">
+            </div>
+            <button id="load-account" type="button" disabled>載入／重新整理</button>
+          </div>
+        </fieldset>
+        <dl class="money">
+          <div><dt>總現金</dt><dd id="total-cash">—</dd></div>
+          <div><dt>已預留現金</dt><dd id="reserved-cash">—</dd></div>
+          <div><dt>可用現金</dt><dd id="available-cash">—</dd></div>
+        </dl>
+        <p class="hint">資料時間：<span id="account-updated-at">尚未載入</span></p>
+        <p id="account-message" class="status" role="status">尚未查詢帳戶。</p>
+      </section>
+
+      <section id="buy-panel" aria-labelledby="buy-title">
+        <h2 id="buy-title">建立 BUY 訂單</h2>
+        <p>使用帳戶：<strong id="buy-account-id">—</strong></p>
+        <p class="hint">方向：BUY　／　類型：LIMIT</p>
+        <fieldset disabled>
+          <legend>買單內容</legend>
+          <label for="symbol">商品代碼</label>
+          <input id="symbol" name="symbol" type="text" maxlength="32" placeholder="例如 AAPL" autocapitalize="characters" spellcheck="false">
+          <label for="quantity">數量</label>
+          <input id="quantity" name="quantity" type="number" min="1" step="1" placeholder="正整數">
+          <label for="price">限價</label>
+          <input id="price" name="price" type="text" inputmode="decimal" placeholder="例如 10.00" aria-describedby="price-hint">
+          <p id="price-hint" class="hint">每單位價格，填寫至小數點後兩位。</p>
+          <button id="submit-buy" class="submit" type="button" disabled>送出買單</button>
+        </fieldset>
+        <p id="buy-message" class="status" role="status">尚未送出訂單。</p>
+        <button id="retry-pending" type="button" disabled hidden>確認原請求結果</button>
+      </section>
+
+      <section id="order-panel" aria-labelledby="order-title">
+        <h2 id="order-title">訂單查詢</h2>
+        <fieldset disabled>
+          <legend>依訂單 ID 查詢</legend>
+          <label for="order-id">訂單 ID</label>
+          <div class="row">
+            <div><input id="order-id" name="order_id" type="text" placeholder="輸入後端回傳的訂單 ID" aria-describedby="order-message"></div>
+            <button id="lookup-order" type="button" disabled>查詢</button>
+          </div>
+        </fieldset>
+        <p id="order-message" class="status" role="status">尚未查詢訂單。</p>
+        <dl class="details">
+          <div><dt>訂單 ID</dt><dd id="detail-order-id">—</dd></div>
+          <div><dt>狀態</dt><dd id="detail-status">—</dd></div>
+          <div><dt>已成交數量</dt><dd id="detail-fill-quantity">—</dd></div>
+          <div><dt>所屬帳戶</dt><dd id="detail-account-id">—</dd></div>
+          <div><dt>帳戶總現金</dt><dd id="detail-total-cash">—</dd></div>
+          <div><dt>帳戶已預留現金</dt><dd id="detail-reserved-cash">—</dd></div>
+          <div><dt>帳戶可用現金</dt><dd id="detail-available-cash">—</dd></div>
+        </dl>
+
+        <h3>本分頁已取得的訂單</h3>
+        <div class="table-wrap">
+          <table>
+            <caption>僅列出本分頁取得的訂單，不代表完整歷史。</caption>
+            <thead><tr><th scope="col">訂單 ID</th><th scope="col">狀態</th><th scope="col">已成交數量</th><th scope="col">操作</th></tr></thead>
+            <tbody id="known-orders"><tr><td class="empty" colspan="4">尚無已取得的訂單。</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

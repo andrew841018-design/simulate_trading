@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>simulate_trading — Project Flow 與資料血緣全圖</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #eef3f9;
+      --ink: #172033;
+      --muted: #5f6b7d;
+      --line: #d9e1eb;
+      --brand: #163f70;
+      --brand-2: #0f6b78;
+      --current: #157347;
+      --current-bg: #e8f7ef;
+      --test: #1769aa;
+      --test-bg: #e9f3ff;
+      --planned: #6f42c1;
+      --planned-bg: #f2ecff;
+      --gap: #a84f00;
+      --gap-bg: #fff1df;
+      --danger: #a62929;
+      --danger-bg: #ffeaea;
+      --shadow: 0 12px 34px rgba(20, 45, 76, .09);
+      --radius: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+    a { color: #075ea8; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre { font-family: var(--mono); }
+    code {
+      background: #edf2f7;
+      border: 1px solid #dce4ee;
+      border-radius: 6px;
+      padding: .12rem .34rem;
+      font-size: .9em;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      background: #111c2d;
+      color: #e8f0fb;
+      border-radius: 12px;
+      font-size: .84rem;
+      line-height: 1.65;
+    }
+    pre code { border: 0; background: transparent; color: inherit; padding: 0; }
+
+    .hero {
+      color: white;
+      background:
+        radial-gradient(circle at 82% 18%, rgba(72, 201, 176, .28), transparent 28rem),
+        linear-gradient(125deg, #102b50 0%, #164e72 58%, #0a6970 100%);
+      padding: 52px max(24px, calc((100vw - 1480px) / 2));
+    }
+    .hero-inner { max-width: 1480px; margin: 0 auto; }
+    .eyebrow { letter-spacing: .12em; text-transform: uppercase; font-size: .75rem; opacity: .82; font-weight: 800; }
+    h1 { margin: 8px 0 12px; font-size: clamp(2rem, 4vw, 4.3rem); line-height: 1.08; letter-spacing: -.035em; }
+    .hero p { max-width: 940px; margin: 0; color: #dbeafa; font-size: 1.06rem; }
+    .hero-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+    .hero-chip { padding: 7px 11px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; background: rgba(255,255,255,.08); font-size: .82rem; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 28px; }
+    .metric { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); border-radius: 14px; padding: 15px; backdrop-filter: blur(6px); }
+    .metric strong { display: block; font-size: 1.32rem; }
+    .metric span { color: #d8e8f7; font-size: .8rem; }
+
+    .toolbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      padding: 10px max(18px, calc((100vw - 1480px) / 2));
+      background: rgba(244, 247, 251, .94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .toolbar input {
+      flex: 1 1 260px; max-width: 520px; min-height: 38px;
+      border: 1px solid #bfcbd8; border-radius: 10px; padding: 8px 12px;
+      background: var(--surface); color: var(--ink);
+    }
+    button {
+      border: 1px solid #bdc8d5; background: var(--surface); color: var(--ink);
+      border-radius: 9px; padding: 8px 10px; cursor: pointer; font: inherit; font-size: .82rem;
+    }
+    button:hover, button:focus-visible { border-color: var(--brand-2); outline: 3px solid rgba(15,107,120,.14); }
+    button[aria-pressed="true"] { color: white; background: var(--brand); border-color: var(--brand); }
+
+    .page { max-width: 1480px; margin: 0 auto; padding: 28px 22px 80px; display: grid; grid-template-columns: 280px minmax(0,1fr); gap: 24px; }
+    .sidebar { position: sticky; top: 72px; align-self: start; max-height: calc(100vh - 92px); overflow: auto; padding: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .sidebar strong { display: block; margin-bottom: 8px; font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar a { display: block; padding: 6px 8px; border-radius: 7px; text-decoration: none; color: var(--ink); font-size: .86rem; }
+    .sidebar a:hover, .sidebar a.active { background: var(--surface-2); color: var(--brand); font-weight: 700; }
+    .content { min-width: 0; }
+    section { scroll-margin-top: 76px; margin-bottom: 26px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: clamp(20px, 3vw, 32px); }
+    .section-head { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; margin-bottom: 18px; }
+    .section-head h2 { margin: 0; font-size: clamp(1.35rem, 2vw, 2rem); letter-spacing: -.02em; }
+    .section-head p { margin: 4px 0 0; color: var(--muted); max-width: 800px; }
+    h3 { margin: 26px 0 10px; font-size: 1.15rem; }
+    h4 { margin: 18px 0 8px; }
+    p { margin: .7rem 0; }
+    .muted { color: var(--muted); }
+    .small { font-size: .84rem; }
+
+    .badge { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; padding: 3px 8px; font-size: .69rem; font-weight: 850; letter-spacing: .04em; border: 1px solid transparent; }
+    .current { color: var(--current); background: var(--current-bg); border-color: #b8e0c8; }
+    .test { color: var(--test); background: var(--test-bg); border-color: #bfd9f4; }
+    .planned { color: var(--planned); background: var(--planned-bg); border-color: #d7c7fa; }
+    .gap { color: var(--gap); background: var(--gap-bg); border-color: #f1c994; }
+    .danger { color: var(--danger); background: var(--danger-bg); border-color: #efbcbc; }
+
+    .notice { border-left: 5px solid var(--brand-2); background: #ecf8f8; padding: 14px 16px; border-radius: 10px; margin: 14px 0; }
+    .notice.warning { border-left-color: var(--gap); background: var(--gap-bg); }
+    .notice.danger-note { border-left-color: var(--danger); background: var(--danger-bg); }
+    .notice strong { display: block; }
+
+    .grid-2, .grid-3, .grid-4 { display: grid; gap: 14px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .card { border: 1px solid var(--line); border-radius: 13px; padding: 15px; background: var(--surface); }
+    .card h3, .card h4 { margin-top: 0; }
+    .card p:last-child { margin-bottom: 0; }
+    .status-card { border-top: 4px solid var(--brand); }
+    .status-card[data-status="current"] { border-top-color: var(--current); }
+    .status-card[data-status="test"] { border-top-color: var(--test); }
+    .status-card[data-status="planned"] { border-top-color: var(--planned); }
+    .status-card[data-status="gap"] { border-top-color: var(--gap); }
+
+    .flow { display: flex; gap: 9px; align-items: stretch; overflow-x: auto; padding: 8px 2px 18px; }
+    .flow-node { flex: 1 0 180px; min-height: 124px; border: 1px solid var(--line); border-radius: 13px; padding: 13px; background: var(--surface); }
+    .flow-node strong { display: block; margin: 5px 0; }
+    .flow-node code { font-size: .77rem; }
+    .arrow { align-self: center; color: var(--brand-2); font-weight: 900; font-size: 1.4rem; }
+    .lane { border: 1px solid var(--line); border-radius: 14px; padding: 15px; margin: 12px 0; background: #fbfcfe; }
+    .lane-title { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .lane-title strong { font-size: 1.02rem; }
+    .step-list { list-style: none; padding: 0; margin: 0; counter-reset: steps; }
+    .step-list > li { counter-increment: steps; position: relative; padding: 0 0 18px 50px; min-height: 46px; }
+    .step-list > li::before { content: counter(steps); position: absolute; left: 0; top: 0; width: 30px; height: 30px; display: grid; place-items: center; background: var(--brand); color: white; border-radius: 50%; font-weight: 800; font-size: .8rem; }
+    .step-list > li:not(:last-child)::after { content: ""; position: absolute; left: 14px; top: 31px; bottom: 2px; border-left: 2px solid #c9d5e2; }
+    .step-list strong { display: block; }
+
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; font-size: .86rem; background: var(--surface); }
+    th, td { padding: 10px 12px; vertical-align: top; text-align: left; border-bottom: 1px solid var(--line); }
+    th { position: sticky; top: 0; z-index: 1; background: #e9eff6; color: #344054; font-size: .74rem; text-transform: uppercase; letter-spacing: .045em; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #f7f9fc; }
+    td code { white-space: normal; }
+
+    details { border: 1px solid var(--line); border-radius: 12px; margin: 10px 0; background: var(--surface); }
+    summary { cursor: pointer; padding: 13px 15px; font-weight: 800; }
+    details > div { padding: 0 15px 15px; }
+    .source-ref { display: inline-block; font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+    .mapping { display: grid; grid-template-columns: minmax(160px,.8fr) 44px minmax(220px,1.3fr); align-items: center; gap: 8px; margin: 8px 0; }
+    .mapping > div { border: 1px solid var(--line); padding: 10px; border-radius: 10px; }
+    .mapping .map-arrow { border: 0; padding: 0; text-align: center; font-weight: 900; color: var(--brand-2); }
+    .checks { padding-left: 1.25rem; }
+    .checks li { margin: 5px 0; }
+    .hidden-by-filter { display: none !important; }
+    .no-results { display: none; padding: 14px; color: var(--gap); font-weight: 700; }
+    .back-top { position: fixed; right: 20px; bottom: 20px; width: 42px; height: 42px; border-radius: 50%; box-shadow: var(--shadow); z-index: 30; }
+    .file-tree { font-family: var(--mono); font-size: .82rem; white-space: pre-wrap; background: #111c2d; color: #e8f0fb; border-radius: 12px; padding: 16px; }
+
+    @media (max-width: 1050px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar { position: static; max-height: none; columns: 2; }
+      .metric-grid, .grid-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 720px) {
+      .hero { padding: 36px 20px; }
+      .page { padding: 20px 12px 70px; }
+      .metric-grid, .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .sidebar { columns: 1; }
+      .mapping { grid-template-columns: 1fr; }
+      .mapping .map-arrow { transform: rotate(90deg); }
+      .toolbar { padding: 8px 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print {
+      .toolbar, .sidebar, .back-top { display: none !important; }
+      .page { display: block; max-width: none; padding: 0; }
+      .hero { padding: 24px; print-color-adjust: exact; }
+      .panel { box-shadow: none; break-inside: avoid; }
+      details > div { display: block !important; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <div class="eyebrow">Deterministic Trading Order Sandbox · Source / Decision Reconciliation 2026-09-10</div>
+      <h1>Project Flow 與資料血緣全圖</h1>
+      <p>這份文件回答每一個「從哪裡來、誰傳、誰收、怎麼轉、存去哪、回到哪裡」；所有描述都嚴格區分目前 repository、test-only 行為、已知缺口與 authoritative plan。</p>
+      <p class="notice"><strong>2026-09-15目前進度：</strong>全局4/56；Day4前端與整合10/10完成，Day5 4/5、4-1資料流與成果界線說明active。HTML/CSS/瀏覽器JavaScript與操作說明由Codex依授權交付，Python/SQL與正式Python tests由Andrew完成。Node22passed、Python70passed；原routes與test DB瀏覽器／SQL驗證完成，所有本輪資料rollback。<a href="day4_browser_acceptance.md">交付與限制</a>、<a href="virtual_user_manifest.md">Day5契約</a>。下方已依2026-09-10存檔與已確認決策同步；本次重新查證source與test collection，DB執行證據仍標明原日期。</p>
+<p>2026-09-11 1-1行為驗收完成：最新精確pytest為22 passed（0.03s），已包含每筆quantity乘Decimal(price)累加與迴圈後100000.00上限assert。cost以整數0初始化可精確與Decimal相加，第一筆後成為Decimal，不必為形式改寫。100筆、payload、批次隔離、重現性、輸入拒絕與成本由正式22例覆蓋；random雙向獨立性沿用已實跑2項探針證據，未宣稱納入永久pytest。合法seed／ID額外測試依Andrew決定省略。依當前已驗證行為結束1-1，不再將同一random教學或證據形式作重複關卡；驗證方式與永久回歸覆蓋的差異明列為限制。當時Day5為1/5、active2-1；現行進度見本頁最新驗收與子任務地圖。此段記錄9/11完成1-1的歷史成果。</p><p>2026-09-14 2-1行為驗收完成：最新test_manifest_response已以非201計rejected、201計succeeded；精確manifest pytest22 passed（0.04s），另6組離線sender案例全部PASS。涵蓋空清單、3筆201、201／409／timeout、404後201、timeout後201、100筆201；混合3筆正確回attempted3／succeeded1／failed2。URL、payload、header、順序、沒有重試及未改輸入均核對通過。6組是離線探針，不宣稱納入永久pytest或已送真實API。固定長度及狀態分類問題結案，不再重開；該輪2-1完成，當時Day5 2/5、active2-2第3/5項；現行進度见本頁最新驗收。 2026-09-14 2-2教學補正：上一則驗收後銜接只給文字步驟、漏附既定的不同業務完整範例，本輪補上工單POST→ID→GET範例。不得預設所有POST成功：先檢查status_code，僅201分支讀JSON的非空字串ID；非201、RequestError或缺ID不發GET。本段為9/14的歷史教學；其POST-only計數要求已於9/15退休。現行取order_id仍以POST201為前提，succeeded則依Andrew正向流程在整段通過後增加。範例以MockTransport驗證8種情況全通過，包括POST拒絕／timeout／缺ID／非物件JSON、GET成功／404／timeout／ID不符；沒有網路呼叫，未修改專案Python。後續自動銜接新切片也要附文字控制流與不同業務完整範例，不能只列outcome當引導。 2026-09-15 最新決定：Andrew確認只保留results裡每筆total_cost，不另外提供整批總額；撤回manifest_summary物件及其total_cost/count要求。回傳report只含attempted、succeeded、failed、results；每筆result保留total_cost，沿用現有單筆計算與原生Decimal，不因缺少全批加總或JSON序列化擋關。只需return report，不要求save_summary、output_path、JSON檔案或round-trip。先前整批加總與保存指引已退休，不再重播；已有單筆金額成果保留。這是回傳內容與輸出範圍的決定，不自行豁免其他POST→GET行為驗收，不宣稱2-2全部完成。Day5 1-1既有manifest成本上限測試與3-1隔離資金/SQL對帳責任不變。既有artifacts/virtual_user_summary.json占位檔不再使用、不列驗收，未刪除檔案。 前輪2-2分支引導已交付：包裹查回類比6組離線驗證通過；這是範例證據，專案現況依本頁最新檢查，不重播相同教學。 2026-09-15 GET例外捕捉範圍驗證完成：最新107行版本在79行try內解析JSON並於81行讀get_order_id，86行捕捉KeyError/TypeError，94行改比較已取出的變數。此次同一離線探針4/4 PASS：正常回attempted2/succeeded2/failed0；GET200回{}／null／[]皆回2/1/1，保留兩筆results、首筆verified=False且有error、第二筆verified=True，全部送出2筆POST。前輪取值在try外的問題已修正並結案，不再重開同一教學。重跑入口為simulate_trading目錄下.venv/bin/python /tmp/mini_get_response_probe.py；這是暫存離線探針，不是正式tests，無網路或DB操作。前輪manifest22 passed及其他report/GET驗證為原有證據，本輪未重跑。此次只確認當前GET取值修正，不宣稱整個2-2或真實100筆整合已完成；POST ID既有討論不重播、不因此自動豁免其他契約。Python及正式tests由Andrew修改，Codex未代寫。 2026-09-15 2-2及3-1驗收完成：最新115行版本74行保留str與非空判斷，原有空字串誤發GET與文字ID額外排除均結案；同一離線report探針21/21 PASS。接續既有FastAPI public routes與真實本機_test PostgreSQL，用seed42生成100筆，attempted100/succeeded100/failed0、100筆GET確認，orders/transition/outbox/idempotency各100筆且逐筆payload、ID、狀態與版本一致；保留資金增量48910.00、可用51090.00，與manifest及SQL成本一致。隔離帳戶起始total100000.00/reserved0；本輪帳戶與相關資料已rollback、殘留全0。測試使用TestClient與共用外層transaction/savepoints，不宣稱真實網路、跨連線commit durability、效能或fill/cancel驗證。證據為simulate_trading/docs/references/day5_api_sql_evidence_20260915.json；重跑入口在simulate_trading目錄下.venv/bin/python /tmp/mini_report_contract_probe.py及.venv/bin/python /tmp/mini_day5_integration_probe.py。探針屬驗證工具，不是正式pytest；原manifest22 passed為前輪證據，本轮未重跑。Python及正式tests由Andrew實作，Codex未修改。Day5 4/5，active4-1第5/5項；本次及今日完成+2（2-2、3-1），待Andrew完成資料流與成果界線說明。 2-2當前契約：在scripts/virtual_user.py擴充既有manifest_response(client, manifest)回傳完整report，只以return report回傳Python dict，不要求save_summary、輸出路徑或JSON檔案。依2026-09-15 Andrew採用的正向流程，頂層attempted統計實際嘗試筆數，succeeded統計POST與GET確認整段成功，failed統計其餘已處理失敗；每筆恰計一次且attempted=succeeded+failed。依2026-09-15 Andrew最新決定，report頂層只含attempted、succeeded、failed、results；筆數沿用attempted，不新增manifest_summary或整批總額。每個輸入依原順序保留一筆result，恰含idempotency_key、post_status（HTTP整數或未收到回應時null）、order_id（POST201回傳的非空字串，否則null）、get_status（HTTP整數或未取得時null）、verified（布林）、error（null或錯誤代碼）、total_cost（單筆金額，可保留原生Decimal）。單筆金額沿用既有計算位置；目前成功流程填quantity乘Decimal(price)，未計算時保留0占位，不代表已成交金額。仅POST201且取得有效order_id時，以同一同步client呼叫GET /v1/orders/{order_id}；200且JSON的order_id相符才verified=true。不能拿idempotency_key代替order_id；不讀DB、不重送POST或重試GET。HTTP失敗、RequestError、JSON無法解析或缺ID皆記錄結果並繼續；error記錄原因，成功為null；依Andrew明確忽略命名差異，接受目前post_json_error等標籤，不再以固定字串清單擋關。JSON解析失敗已有continue時可保留目前判斷順序。POST與GET完整通過才計succeeded，任一已處理失敗計failed；GET失敗可使整段failed，但不能據此認定訂單未建立。依2026-09-15最新決定，不要求存檔或JSON序列化；以離線client直接驗證回傳report的內容、mixed POST只查成功ID、GET成功／404／timeout／ID不符仍續行。不要求重驗GET回應的所有業務欄位或DB對帳；3-1才做真實隔離環境100筆。程式與正式tests由Andrew寫，Codex安全驗證。 2-1已完成階段契約（僅供歷史；現行2-2計數依本頁新契約）：在既有scripts/virtual_user.py新增send_manifest(client, manifest)，client為呼叫端提供且已設定base_url與有限timeout的同步httpx.Client；函式不建立或關閉外部client。逐筆POST /v1/orders，JSON只送row.payload，Idempotency-Key header使用row.idempotency_key；每筆送出均計入attempted，可由succeeded+failed等價計算。201（含既有成功重播）算succeeded，其他HTTP status或httpx.RequestError算failed，並繼續下一筆；不自動重試、不改manifest、不直接連DB。failed代表未確認成功，timeout不證明伺服器沒有建立訂單。回傳恰含attempted、succeeded、failed的計數dict，總有attempted=succeeded+failed；空清單三項皆0。先以離線client替身驗證201／409／timeout混合結果及送出順序、URL、payload與header；不發真實HTTP。成功order ID查回／回傳摘要留2-2，隔離環境100筆與對帳留3-1。正式Python及tests由Andrew實作，檔案已存在，Codex負責安全驗證。此為client端工作切片，不改後端API契約。</p><p>以下為已完成1-1的歷史指引。2026-09-11當時切片為Day5 1-1，接續Decimal總成本驗收：在既有tests/test_virtual_user.py的test_build_manifest保留所有assert，於for之前建立Decimal零總額、每筆累加quantity乘Decimal(price)，於for結束後檢查總額不超過Decimal的100000.00；不新增函式或正常seed／ID案例。使用工時乘費率的不同業務範例引導。當輪只讀核算seed42之100筆總额為48910.00，符合上限；教學類比亦執行通過。這不是正式新增成本assert已完成，存檔後由Codex跑tests/test_virtual_user.py，沿用原test時預期仍22 passed。random已有兩項行為探針證據及教學結論，依Andrew糾正不再重講；正式random test尚未新增的事實保留，不自行宣稱豁免。仍在同一1-1內推進可獨立完成的成本部分，未進2-1。全局4/56、Day5 0/5、1-1第1/5項，本次關卡+0，未改Python。 2026-09-11 Andrew糾正：global random獨立性已討論，停止重複getstate／setstate／first與second插入位置等同一段教學。前輪已給完整抽色類比及局部映射，且實際記憶體探針已確認兩項獨立性行為PASS；這些成果必須沿用，不因正式test存檔未變而再次把同一教學當成新工作。正式test是否落地另作事實記錄，不能混同為概念尚未講過；本句糾正不自行推定取消random驗收或完成整個1-1。後續若有新的具體疑問才針對差異回答。 前輪random教學已交付：已說明局部Random與全域random互不影響、狀態快照及恢復，並給過不同業務類比；依最新糾正不再重播。合法seed／ID額外測試豁免維持。</p>
+<p>2026-09-11三參數修正版：精確pytest為22 passed（0.04s）；直接逐列核對錯誤來源為seed7例、account_id7例、batch_id6例，全部符合各組目的。batch案例已使用合法整數seed，兩種ID的65字元拒絕均通過；先前遮蔽問題已解決，不重開。非法輸入這一段完成；in集合寫法保留，不強制拆test或改訊息欄位。2026-09-11 Andrew最新驗收決定：不再新增合法account_id／batch_id測試，撤回1字元、64字元及空白／Unicode／底線原值保留的額外測試要求；不得要求參數化改寫既有正常清單test。保留現有22例（seed7、account7、batch6拒絕案例與原正常清單／重現性2例），seed與ID輸入驗收依目前範圍完成。兩種ID的合法範圍與保留原值契約不變；這是省略額外測試的決定，不能將非法輸入被拒絕記成已證明所有合法輸入成功。先前正常seed端點豁免維持；剩餘global random獨立性與Decimal成本驗收，不取消既有輸出／重現性測試。全局4/56、Day5 0/5、1-1第1/5項；本次完成ID驗收範圍確認，關卡+0。合法ID額外測試已撤回；global random獨立性及Decimal成本仍待完成；全局4/56、Day5 0/5、1-1第1/5項，本次關卡+0，新增6個batch與1個account長度拒絕有效證據。Codex未改Python。</p>
+<p>前次接續證據（歷史）：精確pytest重新取得9 passed（0.02s），seed驗收維持完成。當前1-1先補兩種ID的輸入契約測試：分別改account_id或batch_id，另一ID與seed保持合法；當時要求的空字串、65字元及非字串拒絕已驗證；1／64字元與空白／Unicode／底線合法值額外測試要求後續已撤回。這是既定ID驗收，不新增seed正常端點要求。正式Python由Andrew修改；完成後由Codex跑同一test檔。global random獨立性與Decimal成本仍待後續驗收。測試組織澄清：不要求seed、account_id、batch_id各自新增test函式；可擴充既有test_invalid_manifest，以同一parametrize函式承接三種輸入的獨立案例。每列只讓一個參數非法，其餘合法；若檢查錯誤訊息，預期訊息需隨案例變化。全部manifest行為也可放同一函式，但需正確區分成功與預期例外，單一未參數化test的首個失敗會中止後續檢查。函式数量不是驗收門檻，原seed案例覆蓋與既定契約保留。</p>
+<article class="card" id="day5ManifestContract" style="margin-top:16px"><h3>Day5 1-1 現行契約</h3><p>2026-09-10 Andrew確認採用目前版本。build_manifest(account_id, batch_id, seed)：三參數必填；account_id與batch_id均為1–64字元字串，保留原值，不額外限制首尾空白、ASCII或字元種類；seed為0至2**32-1整數，拒絕bool。</p><p>每筆只含idempotency_key與六欄payload；不含order_id或payload.batch_id。key使用batch_id與序號，可含非ASCII。舊run_id、預設seed、32字元、ASCII及空白限制已撤回。</p><p>清單生成已離線驗證，正式Python tests由Andrew完成；此決定調整本地manifest，不代表HTTP header或API已支援所有輸入。送API示範使用現有有效帳戶與ASCII批次識別。做法變更採用後，同回合同步HTML、plan、spec與測試引導。</p></article>
+      <div class="hero-meta">
+        <span class="hero-chip">Repository：simulate_trading</span>
+        <span class="hero-chip">Current active：Day 5</span>
+        <span class="hero-chip">No real money / no broker</span>
+        <span class="hero-chip">PostgreSQL is authoritative target</span>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><strong>4 / 56</strong><span>HTML authoritative completion</span></div>
+        <div class="metric"><strong>Day 5 · 0/5</strong><span>Day4 10/10完成；1-1 Python manifest active</span></div>
+        <div class="metric"><strong>5 routes</strong><span>首頁＋live / account GET / order POST / order GET</span></div>
+        <div class="metric"><strong>70 collected</strong><span>本次收集；既有9/10回歸70 passed</span></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar" aria-label="文件工具列">
+    <input id="flowSearch" type="search" placeholder="搜尋變數、函式、檔案、table、endpoint…" aria-label="搜尋文件">
+    <button type="button" class="filter" data-filter="all" aria-pressed="true">全部</button>
+    <button type="button" class="filter" data-filter="current" aria-pressed="false">CURRENT</button>
+    <button type="button" class="filter" data-filter="test" aria-pressed="false">TEST-ONLY</button>
+    <button type="button" class="filter" data-filter="planned" aria-pressed="false">PLANNED</button>
+    <button type="button" class="filter" data-filter="gap" aria-pressed="false">GAP</button>
+    <button type="button" id="expandAll">展開細節</button>
+    <button type="button" id="collapseAll">收合細節</button>
+    <button type="button" id="printDoc">列印</button>
+  </div>
+
+  <div class="page">
+    <nav class="sidebar" aria-label="章節導覽">
+      <strong>章節</strong>
+      <a href="#truth">0. 真相分層</a>
+      <a href="#current-map">1. Current 全景</a>
+      <a href="#file-map">2. 檔案責任</a>
+      <a href="#dispatch">3. FastAPI 如何交接</a>
+      <a href="#live-flow">4. /live flow</a>
+      <a href="#account-flow">5. Account GET flow</a>
+      <a href="#order-flow">6. Order POST flow</a>
+      <a href="#variables">7. 變數血緣字典</a>
+      <a href="#tests">8. Test / fixture flow</a>
+      <a href="#database">9. DB / migration flow</a>
+      <a href="#schema">10. Current schema</a>
+      <a href="#evidence">11. 證據與限制</a>
+      <a href="#planned-flow">12. Planned 全流程</a>
+      <a href="#gap-map">13. Current → Target 差距</a>
+      <a href="#roadmap">14. 56-day roadmap</a>
+      <a href="#lookup">15. 追問查法</a>
+    </nav>
+
+    <main class="content" id="content">
+      <div id="noResults" class="no-results">沒有符合搜尋／狀態篩選的內容。</div>
+
+      <section id="truth" class="panel" data-search="truth current test planned gap source of truth 真相">
+        <div class="section-head">
+          <div><h2>0. 先決規則：四種真相不能混在一起</h2><p>同一句「project flow」若不先標狀態，很容易把今天的 code、test 模擬與八週後架構混成假象。</p></div>
+        </div>
+        <div class="grid-4">
+          <div class="card status-card" data-status="current" data-search="CURRENT repository runtime current">
+            <span class="badge current">CURRENT</span>
+            <h3>目前 repository 已存在</h3>
+            <p>可指出真實檔案、函式與程式碼路徑；是否真正可運作仍要看 DB revision 與 runtime evidence。</p>
+          </div>
+          <div class="card status-card" data-status="test" data-search="TEST ONLY fixture override TestClient">
+            <span class="badge test">TEST-ONLY</span>
+            <h3>只在測試成立</h3>
+            <p>TestClient、fixture seed、dependency override、rollback cleanup；不能當成 production flow。</p>
+          </div>
+          <div class="card status-card" data-status="planned" data-search="PLANNED authoritative plan future">
+            <span class="badge planned">PLANNED</span>
+            <h3>authoritative plan 已定義</h3>
+            <p>交易、outbox、Kafka、projection、UI 等責任已規劃，但 repository 尚無實作檔案時會明寫「尚不存在」。</p>
+          </div>
+          <div class="card status-card" data-status="gap" data-search="GAP known gap unverified drift">
+            <span class="badge gap">KNOWN GAP</span>
+            <h3>目前缺口或未驗證</h3>
+            <p>包含尚未驗收的跨連線durability、並行冪等、SELL持倉語意、fill/cancel與Kafka；不得把已完成的BUY交易與重播再列為缺口。</p>
+          </div>
+        </div>
+        <div class="notice warning">
+          <strong>最重要的 current-state boundary</strong>
+          本次未連線重查runtime DB，不沿用8/25的revision與row count當現況。最新已記錄的隔離test DB證據為9/10、revision <code>d3f7a4c91e20</code>，五張業務表。Route內已用transaction管理新BUY；測試fixture的外層交易使route context成為savepoint，測試成功不等於跨連線durability驗收。
+        </div>
+        <p class="small muted">Source位置以檔案與函式為入口；程式或已確認決策改變時，同步本文件與spec、dashboard及驗收。</p>
+        <details>
+          <summary>本文件的 source hierarchy</summary>
+          <div>
+            <ol>
+              <li><strong>現在 code 怎麼走</strong>：以本 repository 的 <code>app/</code>、<code>tests/</code>、<code>migrations/</code>、<code>scripts/</code> 為準。</li>
+              <li><strong>現在 DB 實際有什麼</strong>：以明確日期的DB查證為準；目前引用9/10隔離test DB證據，本輪只核對migration source，不宣稱重新查過runtime DB。</li>
+              <li><strong>完成進度</strong>：以 <a href="../../job_search/de_transition_daily_dashboard.html"><code>job_search/de_transition_daily_dashboard.html</code></a> 的 checklist 為 authoritative gate。</li>
+              <li><strong>未來 target</strong>：以 <a href="../../job_search/de_transition_plan.md"><code>job_search/de_transition_plan.md</code></a> 的 product architecture / 56-day plan 為準。</li>
+              <li><strong>學習筆記</strong>：<a href="engineering_challenges_log.md"><code>engineering_challenges_log.md</code></a> 記錄當時問題；若狀態句與新 code 衝突，新 code + 新 evidence 優先。</li>
+            </ol>
+          </div>
+        </details>
+      </section>
+
+      <section id="current-map" class="panel" data-status="current" data-search="current map FastAPI PostgreSQL UI manifest">
+        <div class="section-head"><div><h2>1. Current system 全景</h2><p>四支public API，加上提供HTML的首頁；虛擬使用者目前只生成本地manifest。</p></div><span class="badge current">CURRENT SOURCE</span></div>
+        <div class="flow"><div class="flow-node"><strong>瀏覽器 / TestClient</strong>GET /live、GET account、POST order、GET order</div><div class="arrow">→</div><div class="flow-node"><strong>app/main.py</strong>GET / 提供app/static/index.html；accounts/orders routers</div><div class="arrow">→</div><div class="flow-node"><strong>FastAPI handlers</strong>讀取帳戶、交易內建立BUY、冪等重播／衝突、訂單含帳戶查詢</div><div class="arrow">→</div><div class="flow-node"><strong>PostgreSQL</strong>accounts、orders、idempotency_requests、order_transitions、outbox_events</div></div>
+        <div class="grid-2"><div class="card" data-status="gap"><span class="badge gap">RUNTIME DB NOT RECHECKED</span><h3>部署環境狀態</h3><p>本輪不查runtime資料或revision；不再使用舊8/25表數與row count作為現在的結論。</p></div><div class="card" data-status="test"><span class="badge test">RECORDED TEST EVIDENCE</span><h3>隔離測試資料庫</h3><p>最新已記錄9/10 revision d3f7a4c91e20，五張業務表。Day4原routes瀏覽器／SQL驗證完成並rollback；詳見<a href="day4_browser_acceptance.md">驗證證據</a>。</p></div></div>
+      </section>
+
+      <section id="file-map" class="panel" data-search="file ownership responsibility 檔案 責任 function">
+        <div class="section-head"><div><h2>2. 檔案責任地圖</h2><p>FastAPI 不靠檔名猜 flow；檔案先定義 callable，router／pytest／Alembic 再保存 callable 或 revision 的 reference。</p></div></div>
+        <div class="file-tree">simulate_trading/
+├── README.md                     # workspace introduction
+├── pyproject.toml                # Python / runtime / dev dependency manifest
+├── uv.lock                       # exact resolved dependency graph
+├── alembic.ini                   # migration location + default runtime URL
+├── app/
+│   ├── config.py                 # settings source
+│   ├── database.py               # connection dependency
+│   ├── main.py                   # FastAPI app + router registry
+│   └── routers/
+│       ├── accounts.py           # GET account
+│       └── orders.py             # POST order + GET order/account
+│   └── static/index.html         # delivered browser UI
+├── migrations/
+│   ├── env.py                    # Alembic online/offline runner
+│   ├── script.py.mako            # new revision source template
+│   └── versions/
+│       ├── 2026_08_12_c6c622f0b972_create_accounts_table.py
+│       ├── 2026_08_21_f14b8c2e7d90_create_orders_table.py
+│       ├── 2026_08_26_8c2f39a71d4e_add_idempotency_outbox_schema.py
+│       └── 2026_09_03_d3f7a4c91e20_add_outbox_event_type_domain.py
+├── scripts/
+│   ├── seed_accounts.sql         # manual deterministic seed
+│   ├── upgrade_test_database.py  # guarded test DB upgrade
+│   ├── virtual_user.py           # local manifest generator
+│   └── check_browser_buy.cjs     # browser behavior checks
+├── tests/
+│   ├── test_browser_ui.py
+│   ├── test_virtual_user.py      # currently empty, not a passed test
+│   ├── test_live.py
+│   ├── test_accounts_api.py
+│   ├── test_accounts_constraints.py
+│   ├── test_idempotency_constraints.py
+│   ├── test_order_transitions_constraints.py
+│   ├── test_orders_api.py
+│   ├── test_orders_constraints.py
+│   └── test_outbox_constraints.py
+└── docs/
+    ├── engineering_challenges_log.md
+    └── project_flow.html         # this document</div>
+
+        <div class="table-wrap" style="margin-top:16px">
+          <table>
+            <thead><tr><th>檔案</th><th>主要 callable / artifact</th><th>誰使用它</th><th>送出什麼</th><th>不負責什麼</th></tr></thead>
+            <tbody>
+              <tr data-status="current" data-search="app config AccountSettings DATABASE_URL TEST_DATABASE_URL"><td><a href="../app/config.py"><code>app/config.py</code></a></td><td><code>AccountSettings</code>、<code>account_settings</code></td><td><code>database.py</code>、tests、test-upgrade script</td><td>兩個 DSN string（值不顯示）</td><td>不開 connection、不執行 SQL</td></tr>
+              <tr data-status="current" data-search="app database get_account_connection psycopg"><td><a href="../app/database.py"><code>app/database.py</code></a></td><td><code>get_account_connection()</code></td><td>accounts/orders route 的 <code>Depends</code></td><td>yield runtime psycopg connection</td><td>dependency只負責close；BUY交易由create_order內的transaction context管理</td></tr>
+              <tr data-status="current" data-search="app main FastAPI include_router live"><td><a href="../app/main.py"><code>app/main.py</code></a></td><td><code>app</code>、<code>live_endpoint()</code></td><td>Uvicorn/TestClient</td><td>route registry</td><td>不執行 account/order SQL</td></tr>
+              <tr data-status="current" data-search="accounts router get_account"><td><a href="../app/routers/accounts.py"><code>app/routers/accounts.py</code></a></td><td><code>get_account()</code></td><td>FastAPI matched GET request</td><td>account JSON or 404</td><td>不建立 account、不儲存 available_cash</td></tr>
+              <tr data-status="current" data-search="orders router CreateOrderRequest create_order get_order"><td><a href="../app/routers/orders.py"><code>app/routers/orders.py</code></a></td><td><code>CreateOrderRequest</code>、<code>create_order()</code>、<code>get_order()</code></td><td>FastAPI matched POST／GET request</td><td>POST建立與重播；GET回order_id/status/fill_quantity及巢狀account</td><td>初始巢狀account GET已驗收；完整後續變動freshness仍依後續切片。</td></tr>
+              <tr data-status="current" data-search="migrations alembic accounts orders"><td><a href="../migrations/env.py"><code>migrations/*</code></a></td><td><code>run_migrations_*</code>、<code>upgrade()</code></td><td>Alembic command</td><td>DDL revision chain</td><td>不處理 runtime request</td></tr>
+              <tr data-status="current" data-search="accounts migration c6c622f0b972 upgrade downgrade"><td><a href="../migrations/versions/2026_08_12_c6c622f0b972_create_accounts_table.py"><code>c6c622f0b972_create_accounts_table.py</code></a></td><td><code>upgrade()</code> / <code>downgrade()</code></td><td>Alembic revision runner</td><td>create/drop <code>accounts</code></td><td>不 seed rows</td></tr>
+              <tr data-status="current" data-search="orders migration f14b8c2e7d90 upgrade downgrade"><td><a href="../migrations/versions/2026_08_21_f14b8c2e7d90_create_orders_table.py"><code>f14b8c2e7d90_create_orders_table.py</code></a></td><td><code>upgrade()</code> / <code>downgrade()</code></td><td>Alembic revision runner</td><td>create/drop <code>orders</code> + index/constraints</td><td>不執行 create_order handler</td></tr>
+              <tr data-status="current" data-search="idempotency transition outbox migration 8c2f39a71d4e"><td><a href="../migrations/versions/2026_08_26_8c2f39a71d4e_add_idempotency_outbox_schema.py"><code>8c2f39a71d4e_add_idempotency_outbox_schema.py</code></a></td><td><code>upgrade()</code> / <code>downgrade()</code></td><td>Alembic revision runner</td><td>create/drop idempotency、transition、outbox tables</td><td>不執行 runtime transaction</td></tr>
+              <tr data-status="current" data-search="outbox event type domain migration d3f7a4c91e20"><td><a href="../migrations/versions/2026_09_03_d3f7a4c91e20_add_outbox_event_type_domain.py"><code>d3f7a4c91e20_add_outbox_event_type_domain.py</code></a></td><td><code>upgrade()</code> / <code>downgrade()</code></td><td>Alembic revision runner</td><td>add/drop <code>check_outbox_event_type_domain_valid</code></td><td>不改既有event rows</td></tr>
+              <tr data-status="test" data-search="tests TestClient fixture pytest"><td><code>tests/*.py</code></td><td>fixtures + tests</td><td>pytest</td><td>request、direct SQL、assertion evidence</td><td>test function 之間不傳資料</td></tr>
+              <tr data-status="planned" data-search="planned services outbox kafka ui files not exist"><td><code>尚無檔案</code></td><td>future fill/cancel service / relay / consumer / HTTP VU sender</td><td>authoritative plan</td><td>future full product flow</td><td>本文件不杜撰未建立路徑</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>支援檔也有責任，但不參與每次 HTTP request</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Artifact</th><th>Sender / 使用者</th><th>Receiver</th><th>傳遞內容</th><th>Runtime boundary</th></tr></thead>
+            <tbody>
+              <tr><td><a href="../README.md"><code>README.md</code></a></td><td>開發者</td><td>人類讀者</td><td>workspace 簡介</td><td>不被 Python import</td></tr>
+              <tr><td><a href="../pyproject.toml"><code>pyproject.toml</code></a></td><td><code>uv</code> / installer</td><td>Python environment</td><td>Python ≥ 3.12、runtime/dev dependency ranges</td><td>安裝時使用，不是 request data</td></tr>
+              <tr><td><a href="../uv.lock"><code>uv.lock</code></a></td><td><code>uv sync</code></td><td>local virtual environment</td><td>精確 dependency resolution</td><td>不可手動當 business config</td></tr>
+              <tr><td><a href="../alembic.ini"><code>alembic.ini</code></a></td><td>Alembic CLI / Config</td><td><code>migrations/env.py</code></td><td>script location、default SQLAlchemy URL、logging</td><td>不供 FastAPI dependency 讀取</td></tr>
+              <tr><td><a href="../migrations/script.py.mako"><code>migrations/script.py.mako</code></a></td><td><code>alembic revision</code></td><td>新 revision source file</td><td><code>upgrade/downgrade</code> 程式骨架</td><td>現有 request 不執行 template</td></tr>
+              <tr><td><a href="engineering_challenges_log.md"><code>docs/engineering_challenges_log.md</code></a></td><td>開發／學習過程</td><td>未來的人類讀者</td><td>問題、原因、解法、驗證筆記</td><td>若狀態敘述過期，以 current source/evidence 為準</td></tr>
+              <tr><td><code>docs/project_flow.html</code></td><td>current source + read-only evidence</td><td>你</td><td>本次 flow/lineage snapshot</td><td>不被 production app import</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="dispatch" class="panel" data-status="current" data-search="FastAPI dispatch values dependant call TestClient body header Depends router">
+        <div class="section-head"><div><h2>3. FastAPI 到底怎麼把資料送進 function</h2><p>看不到手寫 <code>create_order(order=...)</code>，是因為 framework 依宣告建立參數 dictionary，再做 keyword expansion。</p></div><span class="badge current">CURRENT</span></div>
+        <ol class="step-list">
+          <li><strong>Route 註冊</strong><code>app/main.py</code> 將 <code>orders.router</code> 掛到 <code>/v1/orders</code>；<code>@router.post("")</code> 保存 endpoint callable <code>create_order</code>。</li>
+          <li><strong>Sender 建立 HTTP request</strong>TestClient 的 <code>.post(..., json=..., headers=...)</code> 將 dictionary 編碼成 body/header；真實 UI 未來也會做同一件事。</li>
+          <li><strong>FastAPI 解析 signature</strong><code>order: CreateOrderRequest</code> → body；<code>Header(...)</code> → header；<code>Depends(...)</code> → dependency result。</li>
+          <li><strong>建立 values</strong>概念上得到 <code>{"order": CreateOrderRequest(...), "idempotency_key": "...", "connection": conn}</code>。</li>
+          <li><strong>呼叫 receiver</strong>FastAPI 內部以 <code>dependant.call(**values)</code> 執行；此處 <code>dependant.call</code> 就是 <code>create_order</code>。</li>
+          <li><strong>回程</strong>handler return 的 Python object 經 FastAPI JSON encoding 變成 HTTP response；client 的 <code>response.json()</code> 再解析回 Python object。</li>
+        </ol>
+        <div class="mapping">
+          <div><strong>HTTP body</strong><br><code>{"quantity":100,...}</code></div><div class="map-arrow">→</div><div><strong><code>order</code></strong><br>Pydantic 驗證後的 <code>CreateOrderRequest</code></div>
+          <div><strong>HTTP header</strong><br><code>Idempotency-Key</code></div><div class="map-arrow">→</div><div><strong><code>idempotency_key</code></strong><br>用於idempotency_requests查詢、payload比對、結果保存與重播</div>
+          <div><strong>Dependency callable</strong><br><code>get_account_connection</code></div><div class="map-arrow">→</div><div><strong><code>connection</code></strong><br>runtime provider 或 test override provider yield 的 psycopg connection</div>
+        </div>
+        <details>
+          <summary>TestClient 與真實網路的差別</summary>
+          <div><p>TestClient 在同一個 process 內呼叫 ASGI app，不需要 Uvicorn 或 TCP socket；但仍經過 route matching、request validation、dependency solving、handler 與 response serialization。Uvicorn/curl 才是實際 network runtime evidence。</p></div>
+        </details>
+      </section>
+
+      <section id="live-flow" class="panel" data-status="current" data-search="live_endpoint GET live response status liveness">
+        <div class="section-head"><div><h2>4. Flow A — <code>GET /live</code></h2><p>最短路徑：沒有 request body、沒有 dependency、沒有 DB。</p></div><span class="badge current">CURRENT</span></div>
+        <div class="lane">
+          <div class="lane-title"><strong>Sender → Receiver → Response</strong><span class="source-ref">app/main.py:live_endpoint · tests/test_live.py:test_live</span></div>
+          <ol class="step-list">
+            <li><strong>Sender</strong><code>TestClient(app)</code> 的 <code>test.get("/live")</code> 建立 GET request。</li>
+            <li><strong>Route match</strong><code>@app.get("/live")</code> 指向 <code>live_endpoint()</code>。</li>
+            <li><strong>Handler</strong><code>live_endpoint</code> return <code>{"status": "Live endpoint is working!"}</code>。</li>
+            <li><strong>FastAPI response</strong>dictionary → JSON body；預設成功 status 200。</li>
+            <li><strong>Test receiver</strong><code>response</code> 收到 HTTP response；assertion 檢查 status/body。</li>
+          </ol>
+        </div>
+        <div class="notice"><strong>它只能證明什麼</strong>process 能接受 request 並執行 handler；它不查 PostgreSQL、Kafka，也不代表 order system ready。</div>
+      </section>
+
+      <section id="account-flow" class="panel" data-status="current" data-search="GET account account_id total_cash reserved_cash available_cash row HTTPException">
+        <div class="section-head"><div><h2>5. Flow B — <code>GET /v1/accounts/{account_id}</code></h2><p>一個 path parameter 經 FastAPI 進 handler，再用 parameterized SQL 讀 stored values，最後計算 derived value。</p></div><span class="badge current">CURRENT</span></div>
+        <ol class="step-list">
+          <li><strong>Sender</strong>Client 發 <code>GET /v1/accounts/SIM-001</code>。Test sender 位於 <code>tests/test_accounts_api.py:test_existing_account</code>。</li>
+          <li><strong>Router composition</strong><code>main.py</code> prefix <code>/v1/accounts</code> + <code>accounts.py</code> path <code>/{account_id}</code> → full path。</li>
+          <li><strong>Path binding</strong>FastAPI 將 URL segment <code>SIM-001</code> 綁到 function parameter <code>account_id: str</code>。</li>
+          <li><strong>Dependency binding</strong><code>Depends(get_account_connection)</code> 產生 <code>connection</code>。Production 用 runtime DSN；API test 用 override 的 test connection。</li>
+          <li><strong>DB request</strong><code>get_account</code> 將 <code>account_id</code> 放進參數 tuple <code>(account_id,)</code>，送給 psycopg 執行 <code>SELECT total_cash, reserved_cash FROM accounts WHERE account_id = %s</code>。</li>
+          <li><strong>DB receiver</strong>PostgreSQL 尋找 row；<code>fetchone()</code> 回 tuple 或 <code>None</code>，指定給 local variable <code>row</code>。</li>
+          <li><strong>Branch</strong><code>row is None</code> → raise <code>HTTPException(404)</code>；否則 tuple unpack 成 <code>total_cash</code>、<code>reserved_cash</code>。</li>
+          <li><strong>Transform</strong><code>available_cash = total_cash - reserved_cash</code> 只在 response 計算，DB 沒有 stored column。</li>
+          <li><strong>Receiver</strong>FastAPI 將 return dictionary 轉 JSON；client/test 的 <code>response.json()</code> 收到 account representation。</li>
+        </ol>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Response 欄位</th><th>來源</th><th>stored / derived</th><th>下一站</th></tr></thead>
+            <tbody>
+              <tr><td><code>account_id</code></td><td>URL path parameter</td><td>DB PK identity，但 response 使用 input variable</td><td>JSON response</td></tr>
+              <tr><td><code>total_cash</code></td><td><code>accounts.total_cash</code></td><td>stored NUMERIC(12,2)</td><td>JSON response + derived calculation</td></tr>
+              <tr><td><code>reserved_cash</code></td><td><code>accounts.reserved_cash</code></td><td>stored NUMERIC(12,2)</td><td>JSON response + derived calculation</td></tr>
+              <tr><td><code>available_cash</code></td><td><code>total_cash - reserved_cash</code></td><td>derived，未存 DB</td><td>JSON response only</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice warning"><strong>Current boundary</strong>目前 account response 沒有 positions；authoritative plan 的 position-owned/reserved/available 是 future scope。</div>
+      </section>
+
+      <section id="order-flow" class="panel" data-status="current" data-search="POST order create_order idempotency transaction reserved cash transition outbox response_body">
+        <div class="section-head"><div><h2>6. Flow C — POST /v1/orders</h2><p>已驗收的LIMIT BUY流程；SELL仍缺少核准的持倉預留語意。</p></div><span class="badge current">CURRENT CODE</span></div>
+        <ol class="step-list">
+          <li><strong>輸入</strong>CreateOrderRequest接收account_id、action、order_type、quantity、price、symbol；Idempotency-Key經header綁定。嚴格型別／精度與其他未落地限制見spec。</li>
+          <li><strong>本地準備</strong>order_request_payload=model_dump()，price格式化為兩位小數字串；order_id=str(uuid4())。生成UUID不代表訂單已成立。</li>
+          <li><strong>交易開始</strong>with connection.transaction()包含後续查詢、資金變動及五表寫入。</li>
+          <li><strong>既有key</strong>從idempotency_requests讀saved_payload、saved_response、saved_status；同payload回保存結果，不同payload回409。已保存201才是目前已驗收的重播範圍；pending與並行首次使用仍待後續处理。</li>
+          <li><strong>新key</strong>建立pending row；SELECT total_cash, reserved_cash FROM accounts WHERE account_id=%s FOR UPDATE，查不到帳戶回404並回滾新寫入。</li>
+          <li><strong>資金判斷</strong>required_cash=quantity×price；available_cash=total_cash-reserved_cash。不足回409並回滾；足夠則增加reserved_cash。</li>
+          <li><strong>保存新單</strong>INSERT orders後，建立version1、NULL→OPEN、ORDER_CREATED transition；初始payload是六個request欄位加fill_quantity=0。</li>
+          <li><strong>同交易outbox</strong>以相同transition_payload建立outbox event；event_id另由uuid4產生，並关联order_id／status_change_version。</li>
+          <li><strong>保存回應</strong>response_body是六個request欄位加order_id，保存response_status=201與completed_at，再return response_body。</li>
+          <li><strong>交易退出</strong>無既有外層交易時成功退出context會提交；目前API fixture已有外層交易，所以內層是savepoint，最後由fixture rollback。例外會撤銷本次交易／savepoint內的效果。</li>
+        </ol>
+        <h3>INSERT位置對應</h3><p>orders SQL與Python tuple的順序都是：<code>order_id, account_id, action, order_type, quantity, price, symbol</code>。不是依字典欄位名稱自動配對。其餘orders欄位由DB default提供。</p>
+        <h3>回應與查詢分工</h3><p>POST response_body共7欄，沒有status、fill_quantity或account現金。GET /v1/orders/{order_id}透過orders JOIN accounts讀取order_id、status、fill_quantity及account四欄：account_id、total_cash、reserved_cash、available_cash。</p>
+        <p>未知帳戶404、不足資金409、schema422不保存idempotency結果；成功201才保存。同key不同payload的409不覆寫原成功紀錄。</p>
+        <div class="notice warning"><strong>驗證界線</strong>已完成初始BUY、拒絕／重試、重播／衝突、初始事件與一個outbox失敗回滾。尚不能由這些證據宣稱SELL、fill/cancel、並行key競爭、跨連線durability或Kafka已完成。</div>
+      </section>
+
+      <section id="variables" class="panel" data-search="variable lineage 變數 血緣 source receiver lifetime">
+        <div class="section-head"><div><h2>7. 變數血緣字典</h2><p>搜尋任一變數，即可看到出生點、型別、owner、下一站與目前限制。</p></div></div>
+        <div class="table-wrap">
+          <table id="variableTable">
+            <thead><tr><th>變數 / 欄位</th><th>出生點</th><th>型別 / 內容</th><th>誰接收</th><th>處理 / 下一站</th><th>目前狀態</th></tr></thead>
+            <tbody>
+              <tr data-status="current" data-search="account_settings config BaseSettings"><td><code>account_settings</code></td><td><code>app/config.py:9</code> module import</td><td><code>AccountSettings</code> instance</td><td>database dependency、tests、upgrade script</td><td>提供兩個 DSN；值不寫入 HTML</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="DATABASE_URL runtime dsn"><td><code>DATABASE_URL</code></td><td>environment / ignored <code>.env</code></td><td>runtime psycopg DSN string</td><td><code>get_account_connection</code></td><td><code>psycopg.connect()</code> → runtime connection</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="test" data-search="TEST_DATABASE_URL test dsn"><td><code>TEST_DATABASE_URL</code></td><td>environment / ignored <code>.env</code></td><td>test psycopg DSN string</td><td>test fixtures、constraint tests、upgrade script</td><td>guard database name ends <code>_test</code></td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="current" data-search="connection get_account_connection psycopg"><td><code>connection</code></td><td>dependency或fixture yield</td><td>psycopg.Connection</td><td>account／order handlers</td><td>create_order管理transaction；fixture外層交易時用savepoint；dependency最後close</td><td><span class="badge current">TRANSACTION IN ROUTE</span></td></tr>
+              <tr data-status="test" data-search="client TestClient fixture yield"><td><code>client</code></td><td><code>with TestClient(app)</code></td><td>in-process HTTP client</td><td>fixture <code>yield client</code></td><td>注入 test parameter</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="order_api_client pytest fixture"><td><code>order_api_client</code></td><td>pytest 依 test parameter name 找 fixture</td><td>實際值是 yielded TestClient</td><td><code>test_create_limit_buy_order</code></td><td><code>.post()</code> 發 request</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="current" data-search="order CreateOrderRequest body"><td><code>order</code></td><td>POST JSON body + Pydantic validation</td><td><code>CreateOrderRequest</code></td><td><code>create_order</code></td><td>提供六個 command fields、model_dump</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="account_id request path foreign key"><td><code>account_id</code></td><td>GET path 或 POST JSON</td><td>string</td><td>route → parameterized SQL</td><td>account lookup；orders FK</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="total_cash account database stored"><td><code>total_cash</code></td><td><code>get_account</code> 將 DB tuple 第 1 欄 unpack</td><td><code>Decimal</code></td><td>response mapping、available calculation</td><td>stored cash total</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="reserved_cash account database stored"><td><code>reserved_cash</code></td><td><code>get_account</code> 將 DB tuple 第 2 欄 unpack</td><td><code>Decimal</code></td><td>response mapping、available calculation</td><td>stored reserved cash</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="available_cash derived total reserved"><td><code>available_cash</code></td><td>response expression <code>total_cash - reserved_cash</code></td><td><code>Decimal</code> result</td><td>FastAPI encoder → account JSON</td><td>只衍生，不是 DB column</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="action BUY SELL Literal"><td><code>action</code></td><td>POST JSON</td><td>Literal BUY/SELL</td><td>Pydantic → INSERT → response</td><td>DB 再以 CHECK 驗證</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="order_type LIMIT Literal"><td><code>order_type</code></td><td>POST JSON</td><td>Literal LIMIT</td><td>Pydantic → INSERT → response</td><td>DB CHECK LIMIT</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="quantity int positive"><td><code>quantity</code></td><td>POST JSON</td><td>positive int</td><td>Pydantic → INSERT → response</td><td>DB CHECK &gt; 0</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="price Decimal numeric format"><td><code>price</code></td><td>POST JSON string <code>"10.00"</code></td><td>Pydantic Decimal</td><td>DB INSERT + response formatter</td><td>DB NUMERIC；response 變兩位小數 string</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="symbol AAPL length"><td><code>symbol</code></td><td>POST JSON</td><td>string length 1–32</td><td>Pydantic → INSERT → response</td><td>DB nonblank/length checks</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="idempotency_key Idempotency-Key replay conflict"><td><code>idempotency_key</code></td><td>HTTP header</td><td>required string</td><td>idempotency_requests PK查詢／INSERT／UPDATE</td><td>同payload重播、不同payload409</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="order_id uuid4 server owned"><td><code>order_id</code></td><td><code>str(uuid4())</code></td><td>server-owned string UUID</td><td>INSERT tuple + response_body dictionary</td><td>orders PK；response resource identity</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="row get_account fetchone tuple total reserved"><td><code>row</code> in <code>get_account</code></td><td>account SELECT 的 <code>fetchone()</code></td><td><code>(total_cash, reserved_cash)</code> or <code>None</code></td><td>404 branch 或 tuple unpack</td><td>兩個欄位進 account response</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="account create_order fetchone locked cash"><td><code>account</code> in create_order</td><td>SELECT total_cash,reserved_cash FOR UPDATE</td><td>兩欄tuple或None</td><td>404／available_cash／required_cash判斷</td><td>成功時更新reserved_cash</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="response_body order_request_payload saved_response"><td><code>response_body</code></td><td>order_request_payload＋order_id</td><td>七欄dictionary</td><td>idempotency_requests.response_body與HTTP回應</td><td>同key重播saved_response</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="test" data-search="response TestClient http response"><td><code>response</code></td><td><code>client.post/get()</code> return</td><td>HTTP response wrapper</td><td>test function</td><td>檢查 status；呼叫 <code>.json()</code></td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="body response json None dictionary"><td><code>body</code></td><td><code>response.json()</code></td><td>解析後 Python mapping</td><td>assertions</td><td><code>body.get(...)</code> 檢查 contract</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="current" data-search="fill_quantity default zero"><td><code>fill_quantity</code></td><td>DB server default 0</td><td>integer</td><td>orders row constraints</td><td>不在目前 POST response</td><td><span class="badge current">DB DEFAULT</span></td></tr>
+              <tr data-status="current" data-search="status OPEN default"><td><code>status</code></td><td>DB server default OPEN</td><td>text enum-by-CHECK</td><td>state constraint/index</td><td>不在目前 POST response</td><td><span class="badge current">DB DEFAULT</span></td></tr>
+              <tr data-status="current" data-search="version default one"><td><code>version</code></td><td>DB server default 1</td><td>positive integer</td><td>orders row</td><td>目前default 1；後續version遞增尚未實作</td><td><span class="badge current">DB DEFAULT</span></td></tr>
+              <tr data-status="test" data-search="cursor psycopg context direct sql"><td><code>cursor</code></td><td><code>connection.cursor()</code> context manager</td><td>psycopg cursor</td><td>API fixture / direct constraint test</td><td>送 SQL 與 parameters；離開 <code>with</code> 後 close</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="error pytest raises violation diagnostic"><td><code>error</code></td><td><code>pytest.raises(...)</code> context manager</td><td>captured exception info</td><td>constraint assertion</td><td><code>error.value.diag.constraint_name</code></td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="acceptable_constraints parameterized set"><td><code>acceptable_constraints</code></td><td><code>@pytest.mark.parametrize</code> case tuple</td><td>set of allowed constraint names</td><td>invalid-domain test</td><td>容許同一 input 先撞到兩個合法防線之一</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="url make_url test database upgrade"><td><code>url</code></td><td><code>make_url(TEST_DATABASE_URL)</code></td><td>SQLAlchemy URL object</td><td>test DB name guard、driver transform</td><td>render into in-memory Alembic option</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="test" data-search="config Alembic Config test upgrade"><td><code>config</code> in upgrade script</td><td><code>Config("alembic.ini")</code></td><td>Alembic Config object</td><td><code>command.upgrade</code></td><td>TEST URL 覆寫只活在該 process</td><td><span class="badge test">TEST-ONLY</span></td></tr>
+              <tr data-status="current" data-search="payload idempotency saved response"><td><code>order_request_payload</code></td><td>model_dump＋price格式化</td><td>六欄dict → JSONB request_payload</td><td>保存及與saved_payload比較</td><td>不使用request fingerprint/hash</td><td><span class="badge current">CURRENT</span></td></tr>
+              <tr data-status="current" data-search="outbox event_id kafka"><td><code>event_id / outbox_id</code></td><td>route UUID／DB identity</td><td>業務事件去重ID／內部row序號</td><td>目前outbox INSERT；未來relay</td><td>事件已保存，Kafka發布尚未實作</td><td><span class="badge current">CURRENT WRITER</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tests" class="panel" data-status="test" data-search="pytest fixture dependency override rollback test database TestClient closure">
+        <div class="section-head"><div><h2>8. Test-only flow：fixture、override、rollback</h2><p>API tests 不呼叫彼此；每個 fixture 自己建立前置狀態，再把同一條 test connection 交給 production route。</p></div><span class="badge test">TEST-ONLY</span></div>
+        <div class="flow">
+          <div class="flow-node"><strong>pytest 找 fixture</strong>test parameter 名稱 <code>order_api_client</code></div><div class="arrow">→</div>
+          <div class="flow-node"><strong>fixture connect</strong><code>TEST_DATABASE_URL</code>，assert DB name ends <code>_test</code></div><div class="arrow">→</div>
+          <div class="flow-node"><strong>seed prerequisite</strong>同一 transaction INSERT <code>SIM-001</code></div><div class="arrow">→</div>
+          <div class="flow-node"><strong>override mapping</strong>production callable → nested test callable</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>yield TestClient</strong>pytest 將 client 注入 test parameter</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>request route</strong>FastAPI dependency 使用 override connection</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>teardown</strong>clear override → rollback → close</div>
+        </div>
+
+        <h3>為什麼 route 看得到尚未 commit 的 fixture account</h3>
+        <p>Nested <code>get_test_account_connection()</code> 透過 closure yield fixture 外層的<strong>同一個 connection object</strong>。Fixture seed 與 route SELECT 在同一 transaction/connection，因此 route 可以讀到自己的未 commit write；teardown rollback 一次移除 seed 與 order。</p>
+
+        <div class="mapping">
+          <div><strong>Dictionary key</strong><br><code>get_account_connection</code><br>route 已保存的 production callable</div><div class="map-arrow">→</div><div><strong>Dictionary value</strong><br><code>get_test_account_connection</code><br>fixture 內 replacement callable</div>
+        </div>
+        <p><code>app.dependency_overrides</code> 以 function object 對 function object，不靠同名字串。Test function 不需要 import 或呼叫 nested dependency。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Test file</th><th>Collected cases</th><th>走 API？</th><th>DB 行為</th><th>目前證明範圍</th></tr></thead>
+            <tbody>
+              <tr><td><code>test_browser_ui.py</code></td><td>1</td><td>是</td><td>無DB</td><td>首頁HTML入口</td></tr>
+              <tr><td><code>test_virtual_user.py</code></td><td>22</td><td>否</td><td>無DB</td><td>9/11最新22 passed；seed7／account7／batch6來源逐列核對，batch遮蔽及65字元缺口已解決；合法ID額外測試已撤回；成本正式assert已通過，random沿用兩項探針；1-1完成，active2-1</td></tr>
+              <tr><td><code>test_idempotency_constraints.py</code></td><td>7</td><td>否</td><td>direct SQL＋rollback</td><td>pending／status-body配對／key唯一與非空</td></tr>
+              <tr><td><code>test_order_transitions_constraints.py</code></td><td>10</td><td>否</td><td>direct SQL＋rollback</td><td>version、domain、PK/FK</td></tr>
+              <tr><td><code>test_live.py</code></td><td>1</td><td>是</td><td>無 DB</td><td>liveness contract</td></tr>
+              <tr><td><code>test_accounts_api.py</code></td><td>2</td><td>是</td><td>fixture seed + rollback</td><td>existing 200 / missing 404</td></tr>
+              <tr><td><code>test_accounts_constraints.py</code></td><td>6</td><td>否，direct SQL</td><td>session TRUNCATE + per-test rollback</td><td>accounts constraints/PK</td></tr>
+              <tr><td><code>test_orders_api.py</code></td><td>13</td><td>是</td><td>fixture外層交易 + route savepoint + rollback</td><td>BUY／拒絕重試／冪等／GET account／事件／回滾／初始對帳</td></tr>
+              <tr><td><code>test_orders_constraints.py</code></td><td>20</td><td>否，direct SQL</td><td>per-test account/order writes + rollback</td><td>defaults、state matrix、domain、PK/FK</td></tr>
+              <tr><td><code>test_outbox_constraints.py</code></td><td>10</td><td>否，direct SQL</td><td>per-test parent/outbox writes + rollback</td><td>identity、transition linkage、publication time、event-type domain</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>每個 test callable 的 sender → receiver</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Callable</th><th>Input 從哪來</th><th>送到哪裡</th><th>主要 assertion / 證據</th><th>Cleanup</th></tr></thead>
+            <tbody>
+              <tr><td><code>test_live</code></td><td>module-level <code>TestClient(app)</code></td><td>ASGI <code>GET /live</code></td><td>200 + exact JSON</td><td>無 DB</td></tr>
+              <tr><td><code>test_client</code> fixture</td><td><code>TEST_DATABASE_URL</code> + local SIM-001 values</td><td>test DB seed；override mapping；yielded TestClient</td><td><code>_test</code> guard</td><td>clear override → rollback → close</td></tr>
+              <tr><td><code>test_existing_account</code></td><td>pytest 注入 <code>test_client</code></td><td><code>GET /v1/accounts/SIM-001</code></td><td>200 + four-field body</td><td>由 fixture cleanup</td></tr>
+              <tr><td><code>test_missing_account</code></td><td>同一 fixture，但 URL 用 <code>NOT_FOUND</code></td><td>account route → SELECT → 404 branch</td><td>404 + detail</td><td>由 fixture cleanup</td></tr>
+              <tr><td><code>order_api_client</code> fixture</td><td><code>TEST_DATABASE_URL</code> + local SIM-001 values</td><td>test DB seed；order dependency override；yielded TestClient</td><td><code>_test</code> guard</td><td>clear override → rollback → close</td></tr>
+              <tr><td><code>test_create_limit_buy_order</code></td><td>pytest 注入 <code>order_api_client</code>；test literal header/body</td><td><code>POST /v1/orders</code> → <code>create_order</code></td><td>201；六個 echo fields；nonempty string order_id</td><td>order INSERT 與 seed 一起 rollback</td></tr>
+              <tr><td><code>reset_test_database</code></td><td>pytest autouse fixture，scope=session；定義在 account constraint module</td><td>autocommit <code>TRUNCATE accounts, orders, order_transitions, outbox_events, idempotency_requests</code></td><td><code>_test</code> guard</td><td>立即 close；其可見範圍不是 production flow</td></tr>
+              <tr><td><code>test_account_id_constraints</code></td><td>NULL account_id literal</td><td>accounts NOT NULL</td><td>捕捉 <code>NotNullViolation</code>；否則確認查無 row</td><td>rollback + close</td></tr>
+              <tr><td><code>test_total_cash_constraints</code></td><td>negative total_cash literal</td><td><code>check_total_cash_non_negative</code></td><td>捕捉 <code>CheckViolation</code>；否則確認查無 row</td><td>rollback + close</td></tr>
+              <tr><td><code>test_reserved_cash_constraints</code></td><td>negative reserved_cash literal</td><td><code>check_reserved_cash_non_negative</code></td><td>捕捉 <code>CheckViolation</code>；否則確認查無 row</td><td>rollback + close</td></tr>
+              <tr><td><code>test_reserved_cash_not_exceed_total_cash_constraints</code></td><td>reserved &gt; total literal</td><td><code>check_reserved_cash_not_exceed_total_cash</code></td><td>捕捉 <code>CheckViolation</code>；否則確認查無 row</td><td>rollback + close</td></tr>
+              <tr><td><code>test_valid_account_insertion</code></td><td>合法 account literal</td><td>direct INSERT → SELECT</td><td>row identity / total / reserved</td><td>rollback + close</td></tr>
+              <tr><td><code>test_duplicate_account_id_insertion</code></td><td>相同 <code>test_4</code> 寫兩次</td><td>accounts PK</td><td><code>UniqueViolation / accounts_pkey</code></td><td>rollback + close</td></tr>
+              <tr><td><code>test_valid_limit_buy_order</code></td><td>local account/order literals</td><td>direct INSERT → dict-row SELECT</td><td>全部 12 columns/defaults/timestamps</td><td>rollback + close</td></tr>
+              <tr><td><code>test_order_reject_invalid_status</code> × 5</td><td>parametrize 提供 fill/quantity/status</td><td>direct INSERT → status/fill CHECK</td><td>指定 constraint name</td><td>rollback + close</td></tr>
+              <tr><td><code>test_order_accepts_valid_status</code> × 4</td><td>parametrize 提供合法 matrix</td><td>direct INSERT → SELECT</td><td>row fields 與 case 相同</td><td>rollback + close</td></tr>
+              <tr><td><code>test_reject_invalid_field_domain</code> × 8</td><td>parametrize 提供 8 個非法 domain case</td><td>direct INSERT → DB CHECK</td><td>constraint name ∈ <code>acceptable_constraints</code></td><td>rollback + close</td></tr>
+              <tr><td><code>test_order_reject_duplicate_order_id</code></td><td>相同 <code>ORDER_TEST_ID</code> 寫兩次</td><td>orders PK</td><td><code>UniqueViolation / pk_orders</code></td><td>rollback + close</td></tr>
+              <tr><td><code>test_order_rejects_unknown_account_id</code></td><td>不存在的 account literal</td><td>orders FK</td><td><code>ForeignKeyViolation / fk_orders_account_id_accounts</code></td><td>rollback + close</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice warning"><strong>Autouse 不等於全域 production setup</strong><code>reset_test_database</code> 定義在一個 test module；它不是 FastAPI 啟動流程，也不應用來保證任意單檔測試之前一定有人清 DB。各 API fixture／constraint test 仍應靠自身 transaction cleanup 維持隔離。</div>
+        <div class="notice warning"><strong>Test 之間沒有 data flow</strong><code>test_accounts_api.py</code> 不會把 account 傳給 <code>test_orders_api.py</code>。Order API fixture 自己 seed account，確保單獨執行仍成立。</div>
+      </section>
+
+      <section id="database" class="panel" data-search="database migration Alembic config seed upgrade test runtime DB">
+        <div class="section-head"><div><h2>9. Config、connection、migration、seed 的資料流</h2><p>Runtime request connection 與 Alembic migration connection 是兩條不同入口。</p></div></div>
+
+        <div class="grid-2">
+          <div class="card" data-status="current" data-search="runtime config flow AccountSettings database get_account_connection">
+            <span class="badge current">RUNTIME CONNECTION</span>
+            <ol class="checks">
+              <li><code>app/config.py</code> 建立 <code>account_settings</code></li>
+              <li>環境／ignored <code>.env</code> 提供 <code>DATABASE_URL</code></li>
+              <li><code>app/database.py</code> 呼叫 <code>psycopg.connect()</code></li>
+              <li>dependency yield <code>connection</code> 給 handler</li>
+              <li>handler 完成後 finally close</li>
+            </ol>
+          </div>
+          <div class="card" data-status="current" data-search="Alembic migration flow env online offline sqlalchemy url">
+            <span class="badge current">ALEMBIC CONNECTION</span>
+            <ol class="checks">
+              <li><code>alembic.ini</code> 定義 script location / default SQLAlchemy URL</li>
+              <li><code>migrations/env.py</code> 依 mode 呼叫 <code>run_migrations_offline()</code> 或 <code>run_migrations_online()</code></li>
+              <li><code>run_migrations_online()</code> 用 <code>engine_from_config</code> 建 connection；offline 只用 URL 輸出 SQL</li>
+              <li>revision <code>upgrade()</code> 送 DDL</li>
+              <li>Alembic transaction 寫 revision</li>
+            </ol>
+          </div>
+        </div>
+
+        <h3>Test DB upgrade 特殊路徑</h3>
+        <ol class="step-list">
+          <li><strong>Source</strong><code>scripts/upgrade_test_database.py</code> 讀 <code>TEST_DATABASE_URL</code>。</li>
+          <li><strong>Fail-close guard</strong>解析 URL 後 assert database name ends <code>_test</code>。</li>
+          <li><strong>Transform</strong>driver name 轉為 <code>postgresql+psycopg</code>，寫入 in-memory Alembic config。</li>
+          <li><strong>Receiver</strong><code>command.upgrade(config, "head")</code> 觸發 <code>migrations/env.py</code> 與 revision chain。</li>
+        </ol>
+
+        <h3>Deterministic account seed</h3>
+        <p><code>scripts/seed_accounts.sql</code> 是 SQL artifact，不會被 FastAPI 自動執行。執行者必須用 psql/DB tool 主動送出；<code>ON CONFLICT(account_id) DO UPDATE</code> 讓同一 seed 可重跑，固定 <code>SIM-001 / 100000.00 / 30000.00</code>。</p>
+        <div class="notice warning"><strong>兩個 URL source 不同</strong>Runtime app 的 DB URL 由 <code>AccountSettings</code> 提供；一般 Alembic 預設 URL 在 <code>alembic.ini</code>。Test upgrade script 才會主動用 <code>TEST_DATABASE_URL</code> 覆寫 Alembic config。</div>
+      </section>
+
+      <section id="schema" class="panel" data-status="current" data-search="schema accounts orders constraints defaults index FK PK">
+        <div class="section-head"><div><h2>10. Current schema：stored、default、constraint</h2><p>本次核對四個migration source；DB套用狀態引用已記錄9/10隔離test DB證據，沒有本轮DB重查。完整五表／36欄見data_contract_spec.md。</p></div><span class="badge current">APPLIED IN TEST DB</span></div>
+        <h3><code>accounts</code> — grain：一列一個 fictitious account</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Column</th><th>Type</th><th>Owner</th><th>Constraint</th><th>流向</th></tr></thead>
+            <tbody>
+              <tr><td><code>account_id</code></td><td>TEXT NOT NULL</td><td>seed/test setup</td><td>PK</td><td>GET path identity、orders FK</td></tr>
+              <tr><td><code>total_cash</code></td><td>NUMERIC(12,2) NOT NULL</td><td>seed/current state</td><td>&gt;= 0</td><td>GET response、available calculation</td></tr>
+              <tr><td><code>reserved_cash</code></td><td>NUMERIC(12,2) NOT NULL</td><td>seed/current state</td><td>&gt;= 0；&lt;= total_cash</td><td>GET response、available calculation</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>available_cash</code> 不在 schema；由 API 或 query 以 <code>total_cash - reserved_cash</code> 計算。</p>
+
+        <h3><code>orders</code> — grain：一列一張 logical LIMIT order current state</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Column</th><th>Type / default</th><th>來源</th><th>核心 constraint</th></tr></thead>
+            <tbody>
+              <tr><td><code>order_id</code></td><td>TEXT NOT NULL</td><td>server UUID</td><td>PK、nonblank</td></tr>
+              <tr><td><code>account_id</code></td><td>TEXT NOT NULL</td><td>request</td><td>FK accounts ON DELETE RESTRICT、nonblank</td></tr>
+              <tr><td><code>action</code></td><td>TEXT</td><td>request</td><td>BUY / SELL</td></tr>
+              <tr><td><code>order_type</code></td><td>TEXT</td><td>request</td><td>LIMIT only</td></tr>
+              <tr><td><code>quantity</code></td><td>INTEGER</td><td>request</td><td>&gt; 0</td></tr>
+              <tr><td><code>fill_quantity</code></td><td>INTEGER default 0</td><td>DB default / future fill</td><td>0 ≤ fill ≤ quantity</td></tr>
+              <tr><td><code>symbol</code></td><td>TEXT</td><td>request</td><td>nonblank；length 1–32</td></tr>
+              <tr><td><code>price</code></td><td>NUMERIC(12,2)</td><td>request Decimal</td><td>&gt; 0</td></tr>
+              <tr><td><code>status</code></td><td>TEXT default OPEN</td><td>DB default / future transition</td><td>OPEN / PARTIAL_FILLED / FILLED / CANCELLED + fill matrix</td></tr>
+              <tr><td><code>version</code></td><td>INTEGER default 1</td><td>DB default / future transition</td><td>&gt; 0</td></tr>
+              <tr><td><code>created_at</code></td><td>TIMESTAMPTZ default now()</td><td>DB clock</td><td>NOT NULL</td></tr>
+              <tr><td><code>updated_at</code></td><td>TIMESTAMPTZ default now()</td><td>DB clock</td><td>NOT NULL；目前沒有 auto-update trigger</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <details open>
+          <summary>orders 的精確 constraint / index 名稱</summary>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>實際 predicate / reference</th><th>備註</th></tr></thead>
+              <tbody>
+                <tr><td><code>pk_orders</code></td><td>PRIMARY KEY (<code>order_id</code>)</td><td>同時提供 unique index</td></tr>
+                <tr><td><code>fk_orders_account_id_accounts</code></td><td><code>account_id → accounts.account_id ON DELETE RESTRICT</code></td><td>unknown account 直接 DB reject</td></tr>
+                <tr><td><code>check_symbol_not_empty</code></td><td><code>symbol IS NOT NULL AND symbol &lt;&gt; ''</code></td><td>column 本身也 NOT NULL</td></tr>
+                <tr><td><code>check_symbol_length_valid</code></td><td><code>char_length(symbol) BETWEEN 1 AND 32</code></td><td>和 Pydantic 1–32 對齊</td></tr>
+                <tr><td><code>check_quantity_non_negative</code></td><td><code>quantity &gt; 0</code></td><td>名稱寫 non-negative，但實際不允許 0</td></tr>
+                <tr><td><code>check_fill_quantity_non_negative</code></td><td><code>fill_quantity &gt;= 0</code></td><td>允許 0</td></tr>
+                <tr><td><code>check_fill_quantity_not_exceed_quantity</code></td><td><code>fill_quantity &lt;= quantity</code></td><td>upper bound</td></tr>
+                <tr><td><code>check_price_non_negative</code></td><td><code>price &gt; 0</code></td><td>名稱寫 non-negative，但實際不允許 0</td></tr>
+                <tr><td><code>check_order_type_valid</code></td><td><code>order_type IN ('LIMIT')</code></td><td>目前只有 LIMIT</td></tr>
+                <tr><td><code>check_action_valid</code></td><td><code>action IN ('BUY', 'SELL')</code></td><td>目前兩種 action</td></tr>
+                <tr><td><code>check_status_valid</code></td><td><code>status IN ('PARTIAL_FILLED','FILLED','CANCELLED','OPEN')</code></td><td>current spelling</td></tr>
+                <tr><td><code>check_version_non_negative</code></td><td><code>version &gt; 0</code></td><td>名稱寫 non-negative，但實際不允許 0</td></tr>
+                <tr><td><code>check_order_id_not_null</code></td><td><code>char_length(order_id) &gt; 0</code></td><td>實際檢查 nonblank；NOT NULL 另由 column 保證</td></tr>
+                <tr><td><code>check_account_id_not_null</code></td><td><code>char_length(account_id) &gt; 0</code></td><td>實際檢查 nonblank；NOT NULL 另由 column 保證</td></tr>
+                <tr><td><code>check_status_fill_quantity_valid</code></td><td>OPEN=0；PARTIAL_FILLED=0&lt;fill&lt;quantity；FILLED=fill=quantity；CANCELLED=fill&lt;quantity</td><td>cross-column state matrix</td></tr>
+                <tr><td><code>idx_orders_account_status</code></td><td>nonunique index (<code>account_id, status</code>)</td><td>支援 account/status 查詢</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <h3>Transition / outbox canonical domains</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Type</th><th>Previous → current status</th><th>Outbox rule</th></tr></thead>
+            <tbody>
+              <tr><td><code>ORDER_CREATED</code></td><td><code>NULL → OPEN</code></td><td><code>event_type = transition_type</code></td></tr>
+              <tr><td><code>ORDER_PARTIALLY_FILLED</code></td><td><code>OPEN/PARTIAL_FILLED → PARTIAL_FILLED</code></td><td><code>event_type = transition_type</code></td></tr>
+              <tr><td><code>ORDER_FILLED</code></td><td><code>OPEN/PARTIAL_FILLED → FILLED</code></td><td><code>event_type = transition_type</code></td></tr>
+              <tr><td><code>ORDER_CANCELLED</code></td><td><code>OPEN/PARTIAL_FILLED → CANCELLED</code></td><td><code>event_type = transition_type</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>ORDER_ACCEPTED</code>、<code>PARTIALLY_FILLED</code>與<code>CANCELED</code>不是合法alias。Test DB revision <code>d3f7a4c91e20</code>已用<code>check_outbox_event_type_domain_valid</code>限制outbox為表列四值。Transition與outbox共用同一data object，不使用內層payload version；未來Kafka relay依核准設計以唯一的<code>schema_version=1</code>包成envelope；relay尚未實作。Fill事件以<code>order_id + fill_number</code>識別，payload只保存累計<code>fill_quantity</code>，每次成交量留在future fills row。精確JSON keys、Decimal encoding與size bounds見<a href="data_contract_spec.md">data contract spec</a>。</p>
+
+        <div class="notice info"><strong>Canonical terminology 已鎖定</strong>
+          所有active spec與新實作固定使用 <code>total_cash / reserved_cash / available_cash / quantity / fill_quantity / price / PARTIAL_FILLED / CANCELLED / status_change_version</code>；舊的 <code>cash_total / cash_reserved / original_qty / filled_qty / limit_price / PARTIALLY_FILLED / CANCELED / status-change count</code>只可能出現在歷史紀錄，不得回到新code或驗收。
+        </div>
+      </section>
+
+      <section id="evidence" class="panel" data-search="evidence collection source tests boundaries">
+        <div class="section-head"><div><h2>11. 本次查證與已有證據</h2><p>2026-09-10回溯同步：明確區分本次執行與先前已保存的驗收。</p></div></div>
+        <div class="grid-2"><div class="card" data-status="current"><h3>本次執行</h3><ul><li>掃描26個implementation／test／migration artifacts，其中22個Python檔可解析。</li><li>歷史collection曾為70、71、72 cases，並非本次重跑結果。9/11本次manifest精確22 passed，跨批次整批key隔離及非法輸入驗收完成；batch遮蔽已解決，合法ID額外測試已撤回；random行為探針及成本正式assert均已有證據，1-1完成，完整DB suite未重跑。</li><li>4個migration revisions、5張業務表、36個欄位，與spec核對。</li><li>對照路由、request／response、transaction與事件寫入、既有tests及已确认決策。</li></ul></div><div class="card" data-status="test"><h3>引用已有9/10驗收</h3><ul><li>Python完整回歸70 passed；Node前端22 passed。</li><li>原routes、真實隔離test DB的瀏覽器／SQL一致性及rollback。</li><li>BUY、重播、拒絕、GET、初始transition/outbox與單一晚期失敗回滾。</li></ul><a href="day4_browser_acceptance.md">Day4證據與限制</a></div></div>
+        <div class="notice warning">本輪沒有執行DB寫入suite或重查runtime DB；收集70 tests不是70 tests通過。SELL、pending／並行key、任意價格精度、完整fill/cancel、跨連線durability、Kafka／projection仍按後續規劃。</div>
+        <p><a href="code_document_consistency.md">本輪矛盾修正與後續同步入口</a></p>
+      </section>
+
+      <section id="planned-flow" class="panel" data-status="planned" data-search="planned target architecture transaction idempotency lock reservation transition outbox Kafka relay consumer projection UI virtual user">
+        <div class="section-head"><div><h2>12. Planned target：完整 product flow</h2><p>以下來自 <a href="../../job_search/de_transition_plan.md">authoritative transition plan</a>；BUY交易、初始outbox writer、UI與本地manifest已存在；本節其餘fill/cancel、relay、consumer及projection是後續target。</p></div><span class="badge planned">PLANNED</span></div>
+
+        <div class="flow">
+          <div class="flow-node"><strong>Manual HTML/JS UI</strong>app/static/index.html：已完成Day4</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>FastAPI public API</strong>部分存在</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>BUY transaction</strong>目前在routers/orders.py；尚未獨立成service</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>Authoritative PostgreSQL</strong>五張業務表；positions/fills等為後續</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>Outbox relay</strong>尚無檔案</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>Kafka topic</strong>尚未部署</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>Projection consumer</strong>尚無檔案</div><div class="arrow">→</div>
+          <div class="flow-node"><strong>Timeline UI</strong>尚無檔案</div>
+        </div>
+
+        <h3>Place-order target：BUY基本交易已實作，其餘生命週期仍待完成</h3>
+        <ol class="step-list">
+          <li><strong>422 before business transaction</strong>Pydantic/schema invalid → 不建立 idempotency/order/reservation/outbox。</li>
+          <li><strong>Resolve idempotency</strong>以key找record，將目前normalized payload與保存的JSONB payload直接比較。</li>
+          <li><strong>Replay/conflict</strong>same key/same payload → saved response；same key/different payload → 409 no mutation。</li>
+          <li><strong>Fixed lock order</strong><code>idempotency → account → position</code>，避免多條 transaction 亂序鎖。</li>
+          <li><strong>Validate resources</strong>2026-09-07契約：帳戶不存在 → 404，不留下idempotency row，建立帳戶後可同key／同payload重試。BUY 驗 cash available；SELL 驗 position available；資源不足 → 409，不留下idempotency row或business state，入金後可同key重試。</li>
+          <li><strong>Write business state</strong>reserve remaining obligation、create order、append initial transition。</li>
+          <li><strong>Save response snapshot</strong>僅成功201保存canonical resource identity並重播。404、資金不足409與422不保存、不占用key；同key不同payload的409不覆寫原紀錄。</li>
+          <li><strong>Write outbox</strong>同一 DB transaction append domain event。</li>
+          <li><strong>Commit</strong>成功路徑只有commit成功才回201。非預期例外rollback；未知帳戶404與不足資金409不得留下pending row或business effects，保留key供修正後重試。</li>
+        </ol>
+
+        <h3>Planned event path：commit 後才離開 PostgreSQL</h3>
+        <ol class="step-list">
+          <li><strong>Outbox relay</strong>stable order polling unpublished rows。</li>
+          <li><strong>Kafka producer</strong>以 <code>order_id</code> partition key 發到 <code>trading.order-events.v1</code>。</li>
+          <li><strong>Broker ack</strong>ack 後 relay 才標 <code>published_at</code>；ack 後 crash 可以重送。</li>
+          <li><strong>Projection consumer</strong>以 <code>event_id</code> 與 <code>(order_id, status_change_version)</code> dedupe。</li>
+          <li><strong>Projection commit</strong>先 commit projection/quarantine transaction，再 commit Kafka offset。</li>
+          <li><strong>UI reads two truths</strong>authoritative order/cash 來自 core DB；timeline 另顯示 fresh/stale/gap。</li>
+        </ol>
+
+        <h3>Current and planned tables</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Table</th><th>Grain</th><th>Status</th><th>主要 sender → receiver</th></tr></thead>
+            <tbody>
+              <tr><td><code>accounts</code></td><td>account</td><td><span class="badge current">CURRENT</span></td><td>seed/transaction → account query</td></tr>
+              <tr><td><code>orders</code></td><td>logical order current state</td><td><span class="badge current">TEST DB</span></td><td>目前create_order → GET；fill/cancel為後續</td></tr>
+              <tr><td><code>positions</code></td><td>account × symbol</td><td><span class="badge planned">PLANNED</span></td><td>seed/fill → resource validation</td></tr>
+              <tr><td><code>fills</code></td><td>order × fill sequence</td><td><span class="badge planned">PLANNED</span></td><td>simulator → order detail/reconciliation</td></tr>
+              <tr><td><code>order_transitions</code></td><td>order × status-change version</td><td><span class="badge current">TEST DB</span></td><td>transaction → validator/outbox</td></tr>
+              <tr><td><code>idempotency_requests</code></td><td>globally unique idempotency key</td><td><span class="badge current">TEST DB</span></td><td>request payload → replay/conflict</td></tr>
+              <tr><td><code>outbox_events</code></td><td>one event per order transition</td><td><span class="badge current">TEST DB</span></td><td>transaction → relay</td></tr>
+              <tr><td><code>projected_order_timeline</code></td><td>consumed transition</td><td><span class="badge planned">PLANNED</span></td><td>consumer → timeline API/UI</td></tr>
+              <tr><td><code>projection_quarantine</code></td><td>malformed Kafka record</td><td><span class="badge planned">CONDITIONAL</span></td><td>consumer → repair evidence</td></tr>
+              <tr><td><code>scenario_runs</code></td><td>seeded run manifest</td><td><span class="badge planned">PLANNED</span></td><td>orchestrator → validator</td></tr>
+              <tr><td><code>scenario_execution_steps</code></td><td>run × step command</td><td><span class="badge planned">PLANNED</span></td><td>test orchestrator → deterministic simulator</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="gap-map" class="panel" data-status="gap" data-search="gap matrix current target endpoint component file drift">
+        <div class="section-head"><div><h2>13. Current → Target 差距矩陣</h2><p>「尚無檔案」不是漏寫，是目前 repository 的事實。</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Capability</th><th>Current sender → receiver</th><th>Current file</th><th>Target flow</th><th>Gap</th></tr></thead>
+            <tbody>
+              <tr><td>Liveness</td><td>client → FastAPI handler</td><td><code>app/main.py</code></td><td>same + operations health split</td><td><span class="badge current">DONE CORE</span></td></tr>
+              <tr><td>Account read</td><td>client → route → accounts</td><td><code>routers/accounts.py</code></td><td>add positions/reservation state</td><td><span class="badge current">PARTIAL TARGET</span></td></tr>
+              <tr><td>Place order</td><td>client → transaction → idempotency → FOR UPDATE → reserve → order/transition/outbox → saved201</td><td><code>routers/orders.py</code></td><td>SELL／完整生命週期／並行與durability</td><td><span class="badge current">BUY CORE DONE</span></td></tr>
+              <tr><td>Order GET/list</td><td>GET order_id → orders JOIN accounts</td><td><code>routers/orders.py:get_order</code></td><td>初始巢狀account GET已驗證；list/pagination與後續變动驗收仍屬後續</td><td><span class="badge current">PARTIAL TARGET</span></td></tr>
+              <tr><td>Cancel</td><td>none</td><td>尚無檔案</td><td>order/account/position locks + release</td><td><span class="badge planned">PLANNED</span></td></tr>
+              <tr><td>Fill simulator</td><td>none</td><td>尚無檔案</td><td>dev-only deterministic step service</td><td><span class="badge planned">PLANNED</span></td></tr>
+              <tr><td>Idempotency</td><td>header → request_payload比對 → saved201重播／409衝突</td><td><code>routers/orders.py</code></td><td>pending／並行首次使用仲裁</td><td><span class="badge current">SEQUENTIAL CORE DONE</span></td></tr>
+              <tr><td>Outbox/Kafka</td><td>初始事件在BUY交易內保存</td><td>routers/orders.py、migration與tests</td><td>relay → Kafka → consumer</td><td><span class="badge current">WRITER DONE</span> <span class="badge planned">RELAY PLANNED</span></td></tr>
+              <tr><td>UI</td><td>account／BUY／order lookup／recovery</td><td>app/static/index.html</td><td>same-origin public API only</td><td><span class="badge current">Day4 COMPLETE</span></td></tr>
+              <tr><td>Virtual users</td><td>可重現100筆本地manifest</td><td>scripts/virtual_user.py</td><td>正式離線tests、HTTP sender與結果查詢</td><td><span class="badge current">DAY5 1-1 ACTIVE</span></td></tr>
+              <tr><td>Metrics/CI/Compose</td><td>none</td><td>尚無檔案</td><td>operations/reproduction evidence</td><td><span class="badge planned">LATER WEEKS</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="roadmap" class="panel" data-status="planned" data-search="roadmap 56 day week build verify ship">
+        <div class="section-head"><div><h2>14. 56-day roadmap：flow 如何逐步長出來</h2><p>目前完成Days1–4（Day3末題授權放行、Day4前端委託交付），Day5 active；下列是 target dependency order，不是完成宣告。</p></div><span class="badge planned">PLANNED</span></div>
+        <div class="grid-2">
+          <details open><summary>Week 1 · Days 1–7 — First usable order product</summary><div><ol><li>Run sandbox locally</li><li>Show seeded account</li><li>Place/query first safe BUY</li><li>Browser UI（已完成）</li><li>100 sequential valid VU orders <strong>← active Day 5</strong></li><li>Rebuild/verify</li><li>Memory demo</li></ol></div></details>
+          <details><summary>Week 2 · Days 8–14 — Complete lifecycle</summary><div><ol start="8"><li>Replay same BUY</li><li>Safe SELL</li><li>Deterministic full fill</li><li>Partial fills</li><li>Cancel remaining</li><li>Verify lifecycle</li><li>Rebuild from memory</li></ol></div></details>
+          <details><summary>Week 3 · Days 15–21 — Messy users</summary><div><ol start="15"><li>Personas</li><li>Seeded manifest</li><li>Timeout/lost response</li><li>Invalid/insufficient/collision</li><li>Bounded concurrency</li><li>Verify evidence</li><li>Design unseen behavior</li></ol></div></details>
+          <details><summary>Week 4 · Days 22–28 — Correctness/races</summary><div><ol start="22"><li>Independent reconciliation</li><li>Detect corruption</li><li>Rollback failure</li><li>Cancel/fill winners</li><li>Concurrent balances</li><li>High-risk suite</li><li>Predict unseen race</li></ol></div></details>
+          <details><summary>Week 5 · Days 29–35 — Kafka timeline</summary><div><ol start="29"><li>Kafka round-trip</li><li>Outbox relay</li><li>Idempotent projection</li><li>Freshness/gaps UI</li><li>Replay/rebuild</li><li>Verify outage</li><li>Explain failure windows</li></ol></div></details>
+          <details><summary>Week 6 · Days 36–42 — Recovery/CI</summary><div><ol start="36"><li>PostgreSQL recovery</li><li>Drain backlog</li><li>Trace/health</li><li>Docker Compose</li><li>CI gate</li><li>Clean failure/recovery</li><li>Runbook recall</li></ol></div></details>
+          <details><summary>Week 7 · Days 43–49 — Performance/observability</summary><div><ol start="43"><li>Metrics</li><li>Load baseline</li><li>Backend hypothesis</li><li>Operations diagnosis</li><li>SQL experiment</li><li>Verify claims</li><li>Defend experiment</li></ol></div></details>
+          <details><summary>Week 8 · Days 50–56 — Release/interview proof</summary><div><ol start="50"><li>Feature freeze</li><li>Clean release rehearsal</li><li>Newcomer reproduction</li><li>Evidence-linked claims</li><li>Role/language mapping</li><li>Full review/walkthrough</li><li>Final ship decision</li></ol></div></details>
+        </div>
+      </section>
+
+      <section id="lookup" class="panel" data-search="lookup trace question variable where source sender receiver checklist glossary">
+        <div class="section-head"><div><h2>15. 你拿任何變數追問時，固定用這條鏈回答</h2><p>避免只回答「FastAPI 自動做」或「從 request 來」這種不完整說法。</p></div></div>
+        <div class="grid-3">
+          <div class="card"><h3>1. Birth</h3><p>在哪個 request/path/header、DB row、default、fixture、local expression 出生？</p></div>
+          <div class="card"><h3>2. Binding</h3><p>哪個 framework/decorator/fixture/dependency 將它綁到哪個 parameter？</p></div>
+          <div class="card"><h3>3. Type</h3><p>進入 function 前後型別有沒有從 JSON string 變 Decimal/model？</p></div>
+          <div class="card"><h3>4. Sender → Receiver</h3><p>誰呼叫誰？是 HTTP、Python call、SQL parameter、return，還是 Kafka record？</p></div>
+          <div class="card"><h3>5. Transform</h3><p>是否 validate、format、derive、hash、reserve、default、serialize？</p></div>
+          <div class="card"><h3>6. Lifetime / Evidence</h3><p>只在 memory？進 transaction？commit/rollback？哪個 test/SQL 證明？</p></div>
+        </div>
+        <div class="notice"><strong>一行版</strong><code>origin → binding → typed variable → handler transform → SQL/return → commit/rollback → downstream receiver → evidence</code></div>
+
+        <h3>最常混淆的名詞</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>名詞</th><th>本專案精確含義</th><th>不是什麼</th></tr></thead>
+            <tbody>
+              <tr><td>Request</td><td>client 傳給 FastAPI 的 method/path/header/body</td><td>不是 response dictionary</td></tr>
+              <tr><td><code>order</code></td><td>request body 經 Pydantic 驗證後的 model</td><td>不是 DB row</td></tr>
+              <tr><td><code>row</code></td><td>psycopg <code>fetchone()</code> 結果</td><td>不是 request body</td></tr>
+              <tr><td><code>response_body</code></td><td>handler 組給 response 的 dictionary</td><td>不是 <code>connection.execute()</code> cursor</td></tr>
+              <tr><td>Dependency</td><td>FastAPI 依 callable 解出 handler parameter</td><td>不是 test function 自己呼叫</td></tr>
+              <tr><td>Override</td><td>test 以 original callable 為 key 指定 replacement callable</td><td>不是修改 production source</td></tr>
+              <tr><td>Server-owned ID</td><td>backend runtime 產生的 resource identity</td><td>不代表需要 <code>server.py</code></td></tr>
+              <tr><td>Authoritative</td><td>commit 後 PostgreSQL business state</td><td>不是未 commit response、Kafka projection 或 test fixture</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <button class="back-top" type="button" id="backTop" aria-label="回到頁首">↑</button>
+
+  <script>
+    (() => {
+      const search = document.getElementById('flowSearch');
+      const filterButtons = [...document.querySelectorAll('.filter')];
+      const searchable = [...document.querySelectorAll('[data-search], [data-status], tbody tr')];
+      const noResults = document.getElementById('noResults');
+      let activeFilter = 'all';
+
+      function applyFilters() {
+        const query = search.value.trim().toLocaleLowerCase('zh-Hant');
+        let visible = 0;
+        searchable.forEach((element) => {
+          const haystack = `${element.dataset.search || ''} ${element.textContent}`.toLocaleLowerCase('zh-Hant');
+          // 只依元素自己明示的狀態篩選。若向父層繼承，CURRENT section
+          // 內的 TEST-ONLY card 會被錯誤當成 CURRENT，反之亦然。
+          const status = element.dataset.status || '';
+          const matchesText = !query || haystack.includes(query);
+          const statuses = status.split(/\s+/).filter(Boolean);
+          const matchesStatus = activeFilter === 'all' || !statuses.length || statuses.includes(activeFilter);
+          const hide = !(matchesText && matchesStatus);
+          element.classList.toggle('hidden-by-filter', hide);
+          if (!hide) visible += 1;
+        });
+        noResults.style.display = visible ? 'none' : 'block';
+      }
+
+      search.addEventListener('input', applyFilters);
+      filterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          activeFilter = button.dataset.filter;
+          filterButtons.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === button)));
+          applyFilters();
+        });
+      });
+
+      document.getElementById('expandAll').addEventListener('click', () => {
+        document.querySelectorAll('details').forEach((detail) => { detail.open = true; });
+      });
+      document.getElementById('collapseAll').addEventListener('click', () => {
+        document.querySelectorAll('details').forEach((detail) => { detail.open = false; });
+      });
+      document.getElementById('printDoc').addEventListener('click', () => window.print());
+      document.getElementById('backTop').addEventListener('click', () => document.getElementById('top').scrollIntoView());
+
+      const navLinks = [...document.querySelectorAll('.sidebar a')];
+      const sections = navLinks.map((link) => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        navLinks.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${visible.target.id}`));
+      }, { rootMargin: '-20% 0px -68% 0px', threshold: [0, .1, .5] });
+      sections.forEach((section) => observer.observe(section));
+    })();
+  </script>
+</body>
+</html>
